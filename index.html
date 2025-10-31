@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DeepSeek OCR → Markdown (PDF) — Robust Client</title>
+  <style>
+    :root{
+      --bg:#0f1115; --panel:#151923; --muted:#232836; --text:#e6e6e6; --accent:#62d0ff; --ok:#30d158; --warn:#ffcc00; --err:#ff453a;
+      --shadow:0 8px 30px rgba(0,0,0,.35);
+    }
+    html,body{height:100%}
+    body{margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";}
+    .wrap{max-width:1000px; margin:24px auto; padding:0 16px;}
+    h1{font-size:20px; margin:0 0 8px}
+    .sub{opacity:.75; margin-bottom:16px}
+    .grid{display:grid; gap:12px}
+    .card{background:var(--panel); border:1px solid var(--muted); border-radius:14px; padding:14px; box-shadow:var(--shadow);}
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .row .grow{flex:1}
+    label{display:block; font-weight:600; margin-bottom:6px}
+    input[type="text"], input[type="url"], input[type="password"], input[type="number"]{
+      width:100%; background:#0d1017; border:1px solid var(--muted); color:var(--text);
+      padding:10px 12px; border-radius:10px; outline:none;
+    }
+    input:focus{border-color:var(--accent)}
+    .drop{border:2px dashed var(--muted); border-radius:14px; padding:22px; text-align:center; transition:.2s border-color,.2s background; cursor:pointer; user-select:none;}
+    .drop.dragover{border-color:var(--accent); background:#0c111b}
+    .muted{opacity:.7}
+    .btn{background:var(--accent); color:#00121a; border:0; border-radius:12px; padding:10px 14px; font-weight:700; cursor:pointer; transition:transform .02s; box-shadow:var(--shadow);}
+    .btn:active{transform:translateY(1px)}
+    .btn.secondary{background:#2c3547; color:var(--text)}
+    .btn.warn{background:var(--warn); color:#1a1400}
+    .btn.err{background:var(--err); color:#1a0000}
+    .btn.ok{background:var(--ok); color:#001a08}
+    .bar{height:10px; background:#0c1018; border:1px solid var(--muted); border-radius:999px; overflow:hidden}
+    .bar>span{display:block; height:100%; width:0%; background:linear-gradient(90deg, var(--accent), #79ffa8); transition:width .15s}
+    pre, code, textarea{background:#0b0f15; color:#eaeffb; border:1px solid var(--muted); border-radius:10px}
+    pre{padding:12px; overflow:auto; max-height:420px; white-space:pre-wrap}
+    textarea{width:100%; min-height:240px; padding:12px; resize:vertical}
+    .cols{display:grid; grid-template-columns:1fr; gap:12px}
+    @media(min-width:980px){ .cols{grid-template-columns:1fr 1fr} }
+    small.code{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; opacity:.8}
+    .pill{display:inline-block; padding:4px 8px; border-radius:999px; background:#101522; border:1px solid var(--muted); font-size:12px; opacity:.85}
+    .kbd{font:600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; background:#0b0f15; border:1px solid var(--muted); padding:2px 6px; border-radius:6px}
+    .kv{display:grid; grid-template-columns:180px 1fr; gap:6px 10px; align-items:center}
+    .tag{display:inline-block; padding:2px 8px; border-radius:999px; font:600 11px ui-monospace; margin-right:6px}
+    .info{background:#0f1a2a; border:1px solid #22304b}
+    .warn{background:#2a220f; border:1px solid #4b4022}
+    .err{background:#2a0f0f; border:1px solid #4b2222}
+    .ok{background:#0f2a1a; border:1px solid #224b30}
+    .log-head{display:flex; gap:8px; align-items:center; margin-bottom:6px}
+    .switch{display:inline-flex; align-items:center; gap:6px; user-select:none}
+    .switch input{width:auto}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>DeepSeek OCR → Markdown</h1>
+    <div class="sub">Uploads a PDF via <span class="pill">multipart/form-data</span> to <span class="pill">/models/v1/deepseek/deepseek-ocr/inference</span> with retries, watchdog, and detailed logs.</div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="row">
+          <div class="grow">
+            <label for="endpoint">API Endpoint</label>
+            <input id="endpoint" type="url" spellcheck="false" value="https://api.alphaxiv.org/models/v1/deepseek/deepseek-ocr/inference" />
+          </div>
+          <div class="grow">
+            <label for="proxy">Proxy URL (optional)</label>
+            <input id="proxy" type="url" placeholder="https://your-proxy.example.com/" spellcheck="false" />
+            <small class="muted">Use for CORS. Proxy should faithfully forward method, headers, and body.</small>
+          </div>
+        </div>
+        <div class="row">
+          <div class="grow">
+            <label for="token">Authorization (optional)</label>
+            <input id="token" type="password" placeholder="Bearer token (if required)" />
+            <small class="muted">Sends <span class="pill">Authorization: Bearer &lt;token&gt;</span> when provided.</small>
+          </div>
+          <div style="min-width:220px">
+            <label for="filename">Output filename (.md)</label>
+            <input id="filename" type="text" value="ocr-output.md" />
+          </div>
+          <div style="min-width:180px">
+            <label for="maxSize">Max file size (MB)</label>
+            <input id="maxSize" type="number" value="100" min="1" max="2048" />
+          </div>
+        </div>
+        <div class="row">
+          <label class="switch"><input id="hashToggle" type="checkbox" /> Compute SHA-256 of PDF (slower)</label>
+          <label class="switch"><input id="persistToggle" type="checkbox" checked/> Remember settings</label>
+          <label class="switch"><input id="retryToggle" type="checkbox" checked/> Enable retry/backoff</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <label>PDF File</label>
+        <div id="drop" class="drop">
+          <div><strong>Drag & drop</strong> a PDF here or click to select</div>
+          <div class="muted" style="margin-top:6px">Only <b>.pdf</b>. Magic-byte checked.</div>
+          <input id="file" type="file" accept="application/pdf" style="display:none" />
+        </div>
+        <div id="picked" class="muted" style="margin-top:8px"></div>
+        <div class="kv" style="margin-top:8px">
+          <div>PDF Magic:</div><div id="magic">—</div>
+          <div>SHA-256:</div><div id="sha">—</div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button id="start" class="btn">Start OCR</button>
+          <button id="cancel" class="btn secondary" disabled>Cancel</button>
+          <button id="saveLogs" class="btn secondary" disabled>Save Logs</button>
+          <span id="status" class="muted"></span>
+        </div>
+        <div class="bar" style="margin-top:10px"><span id="prog"></span></div>
+      </div>
+
+      <div class="card cols">
+        <div>
+          <label>Markdown Result</label>
+          <textarea id="output" placeholder="Markdown will appear here…" readonly></textarea>
+          <div class="row" style="margin-top:8px">
+            <button id="download" class="btn ok" disabled>Download .md</button>
+            <button id="copy" class="btn secondary" disabled>Copy</button>
+            <span id="len" class="muted"></span>
+          </div>
+        </div>
+        <div>
+          <div class="log-head">
+            <label>Logs</label>
+            <span class="tag info">INFO</span><span class="tag warn">WARN</span><span class="tag err">ERR</span><span class="tag ok">OK</span>
+          </div>
+          <pre id="log" aria-live="polite">Ready.</pre>
+          <label style="margin-top:12px">cURL (equivalent)</label>
+          <pre id="curl" class="small"></pre>
+        </div>
+      </div>
+
+      <div class="card">
+        <details>
+          <summary><strong>Troubleshooting & Notes</strong></summary>
+          <ul>
+            <li><b>CORS:</b> If you see a generic “Network error,” the server likely blocks browser origins. Use a proxy you control; put its URL in “Proxy URL”.</li>
+            <li><b>Retries:</b> Enabled by default for HTTP 429/5xx and network errors. Backoff: 1s, 2s, 4s (configurable in code).</li>
+            <li><b>Watchdog:</b> Detects upload stalls and warns after inactivity (default 15s). You can cancel and retry.</li>
+            <li><b>Response formats:</b> The app accepts raw Markdown, or JSON containing <code>markdown</code> or <code>text</code> fields.</li>
+            <li><b>Hashing:</b> SHA-256 is optional; it can be slow for large PDFs on low-end devices.</li>
+            <li><b>Local settings:</b> Toggle “Remember settings” to persist endpoint, proxy, token, file size limit, and your preferences.</li>
+          </ul>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- DOM & State ----------
+    const qs = s => document.querySelector(s);
+    const drop = qs('#drop');
+    const fileInput = qs('#file');
+    const picked = qs('#picked');
+    const magicEl = qs('#magic');
+    const shaEl = qs('#sha');
+    const startBtn = qs('#start');
+    const cancelBtn = qs('#cancel');
+    const saveLogsBtn = qs('#saveLogs');
+    const statusEl = qs('#status');
+    const prog = qs('#prog');
+    const out = qs('#output');
+    const len = qs('#len');
+    const log = qs('#log');
+    const dl = qs('#download');
+    const copyBtn = qs('#copy');
+    const curlPre = qs('#curl');
+
+    const endpointEl = qs('#endpoint');
+    const proxyEl = qs('#proxy');
+    const tokenEl = qs('#token');
+    const nameEl = qs('#filename');
+    const maxSizeEl = qs('#maxSize');
+    const hashToggle = qs('#hashToggle');
+    const persistToggle = qs('#persistToggle');
+    const retryToggle = qs('#retryToggle');
+
+    let currentFile = null;
+    let xhr = null;
+    let attempt = 0;
+    const MAX_ATTEMPTS = 3;               // total attempts with backoff
+    const BACKOFF_BASE_MS = 1000;         // 1s, 2s, 4s
+    const WATCHDOG_IDLE_MS = 15000;       // stall detector (no upload progress)
+    let lastProgTs = 0;
+    let watchdogTimer = null;
+    let logBuffer = ['Ready.'];
+
+    // ---------- Utils ----------
+    const now = () => new Date().toISOString().replace('T',' ').replace('Z','');
+    function logLine(level, msg) {
+      const tag = (level||'INFO').toUpperCase();
+      const line = `[${now()}] [${tag}] ${msg}`;
+      logBuffer.push(line);
+      log.textContent = logBuffer.join('\n');
+      log.scrollTop = log.scrollHeight;
+    }
+    function setStatus(msg){ statusEl.textContent = msg; }
+    function setProg(p){ prog.style.width = (Math.max(0, Math.min(100, p)) || 0) + '%'; }
+    function resetUI(){
+      setStatus(''); setProg(0);
+      startBtn.disabled = false; cancelBtn.disabled = true;
+      saveLogsBtn.disabled = logBuffer.length <= 1;
+      stopWatchdog();
+    }
+    function startWatchdog() {
+      stopWatchdog();
+      lastProgTs = performance.now();
+      watchdogTimer = setInterval(() => {
+        const idle = performance.now() - lastProgTs;
+        if (idle > WATCHDOG_IDLE_MS) {
+          logLine('WARN', `No upload progress for ${(idle/1000).toFixed(1)}s — connection may be stalled (CORS or network).`);
+        }
+      }, 2500);
+    }
+    function stopWatchdog(){ if(watchdogTimer){ clearInterval(watchdogTimer); watchdogTimer = null; } }
+
+    function shellEscape(s){ return `'${String(s).replace(/'/g,"'\\''")}'`; }
+    function fullUrl(){
+      const endpoint = endpointEl.value.trim();
+      const proxy = proxyEl.value.trim();
+      return proxy ? (proxy.endsWith('/') ? proxy : proxy) : endpoint;
+    }
+    function isValidHttpUrl(u){
+      try{ const x = new URL(u); return x.protocol === 'https:' || x.protocol === 'http:'; }
+      catch{ return false; }
+    }
+    function isLikelyJSON(s){
+      const t = s.trim();
+      if(!(t.startsWith('{') && t.endsWith('}')) && !(t.startsWith('[') && t.endsWith(']'))) return false;
+      try { JSON.parse(t); return true; } catch { return false; }
+    }
+    function prettyJSON(obj){ try { return JSON.stringify(obj, null, 2); } catch { return String(obj); } }
+
+    // ---------- Settings Persistence ----------
+    const LS_KEY = 'deepseek_ocr_client_settings';
+    function saveSettings(){
+      if(!persistToggle.checked) { localStorage.removeItem(LS_KEY); return; }
+      const obj = {
+        endpoint: endpointEl.value, proxy: proxyEl.value, token: tokenEl.value,
+        filename: nameEl.value, maxSize: maxSizeEl.value, doHash: hashToggle.checked,
+        persist: persistToggle.checked, retry: retryToggle.checked
+      };
+      localStorage.setItem(LS_KEY, JSON.stringify(obj));
+    }
+    function loadSettings(){
+      try{
+        const raw = localStorage.getItem(LS_KEY);
+        if(!raw) return;
+        const s = JSON.parse(raw);
+        if(s.endpoint) endpointEl.value = s.endpoint;
+        if(s.proxy) proxyEl.value = s.proxy;
+        if(s.token) tokenEl.value = s.token;
+        if(s.filename) nameEl.value = s.filename;
+        if(s.maxSize) maxSizeEl.value = s.maxSize;
+        if(typeof s.doHash === 'boolean') hashToggle.checked = s.doHash;
+        if(typeof s.persist === 'boolean') persistToggle.checked = s.persist;
+        if(typeof s.retry === 'boolean') retryToggle.checked = s.retry;
+      } catch{}
+    }
+    [endpointEl, proxyEl, tokenEl, nameEl, maxSizeEl, hashToggle, persistToggle, retryToggle].forEach(el => el.addEventListener('input', saveSettings));
+
+    // ---------- cURL Builder ----------
+    function buildCurl(){
+      const url = fullUrl();
+      const token = tokenEl.value.trim();
+      const fn = currentFile?.name || 'report.pdf';
+      let cmd = `curl -X POST ${shellEscape(url)} \\\n  -F file=@${shellEscape(fn)}`;
+      if(token) cmd += ` \\\n  -H "Authorization: Bearer ${token.replace(/"/g,'\\"')}"`;
+      curlPre.textContent = cmd + (proxyEl.value ? `\n# Note: proxied via ${proxyEl.value}` : '');
+    }
+    [endpointEl, proxyEl, tokenEl].forEach(el => el.addEventListener('input', buildCurl));
+
+    // ---------- PDF Validation ----------
+    async function readMagicBytes(file, n=8){
+      return new Promise((resolve,reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(new Uint8Array(fr.result));
+        fr.onerror = () => reject(fr.error);
+        fr.readAsArrayBuffer(file.slice(0, n));
+      });
+    }
+    function pdfMagicOK(bytes){ // %PDF-
+      const sig = new TextDecoder().decode(bytes);
+      return sig.startsWith('%PDF-');
+    }
+    async function sha256(file){
+      const buf = await file.arrayBuffer();
+      const hash = await crypto.subtle.digest('SHA-256', buf);
+      const bytes = Array.from(new Uint8Array(hash));
+      return bytes.map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    // ---------- File Pick/Drop ----------
+    drop.addEventListener('click', () => fileInput.click());
+    ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove('dragover'); }));
+    drop.addEventListener('drop', handleFileFromEvent);
+    fileInput.addEventListener('change', e => handleFile(e.target.files?.[0]));
+
+    function handleFileFromEvent(e){
+      const f = e.dataTransfer.files?.[0];
+      handleFile(f);
+    }
+    async function handleFile(f){
+      if(!f) return;
+      if(f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')){
+        alert('Please choose a .pdf file.'); return;
+      }
+      const maxBytes = Number(maxSizeEl.value || 100) * 1024 * 1024;
+      if(f.size > maxBytes){
+        alert(`File too large. Limit: ${(maxBytes/1024/1024).toFixed(0)} MB.`);
+        return;
+      }
+      currentFile = f;
+      picked.textContent = `Selected: ${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`;
+      nameEl.value = (f.name.replace(/\.pdf$/i,'') || 'ocr-output') + '.md';
+      buildCurl();
+      // Magic bytes
+      try{
+        const mb = await readMagicBytes(f);
+        const ok = pdfMagicOK(mb);
+        magicEl.textContent = ok ? 'OK — %PDF- signature present' : 'Unexpected header (not %PDF-)';
+        logLine(ok?'OK':'WARN', ok ? 'PDF magic bytes validated.' : 'Header not matching %PDF-. File may still be a PDF.');
+      } catch(err){
+        magicEl.textContent = 'Could not read header';
+        logLine('WARN','Could not read magic bytes: ' + (err?.message || err));
+      }
+      // SHA256 optional
+      shaEl.textContent = '—';
+      if(hashToggle.checked){
+        try{
+          setStatus('Hashing PDF (SHA-256)…');
+          const h = await sha256(f);
+          shaEl.textContent = h;
+          logLine('OK','Computed SHA-256: ' + h);
+          setStatus('');
+        }catch(err){
+          shaEl.textContent = 'hash failed';
+          logLine('WARN','SHA-256 failed: ' + (err?.message || err));
+        }
+      }
+      saveSettings();
+    }
+
+    // ---------- Actions ----------
+    cancelBtn.addEventListener('click', () => {
+      if(xhr){ xhr.abort(); logLine('WARN','Upload aborted by user.'); setStatus('Canceled'); resetUI(); }
+    });
+    saveLogsBtn.addEventListener('click', () => {
+      const blob = new Blob([logBuffer.join('\n')], {type:'text/plain;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `deepseek-ocr-logs-${Date.now()}.txt`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+    });
+
+    startBtn.addEventListener('click', async () => {
+      if(!currentFile){ alert('Please choose a PDF first.'); return; }
+      if(!isValidHttpUrl(fullUrl())){ alert('Invalid endpoint/proxy URL.'); return; }
+
+      out.value = ''; len.textContent = ''; dl.disabled = true; copyBtn.disabled = true;
+      saveLogsBtn.disabled = false;
+      logBuffer = ['Starting…']; log.textContent = logBuffer.join('\n');
+      setStatus('Initializing…'); setProg(0); startBtn.disabled = true; cancelBtn.disabled = true;
+
+      attempt = 0;
+      const maxAttempts = retryToggle.checked ? MAX_ATTEMPTS : 1;
+
+      // Retry loop
+      while(attempt < maxAttempts){
+        attempt++;
+        const tryMsg = `Attempt ${attempt}/${maxAttempts}`;
+        logLine('INFO', `${tryMsg} — preparing form data.`);
+        const succeeded = await doUploadOnce(tryMsg);
+        if(succeeded){ break; }
+        if(attempt < maxAttempts){
+          const delay = BACKOFF_BASE_MS * Math.pow(2, attempt-1);
+          logLine('INFO', `Retrying in ${(delay/1000).toFixed(1)}s…`);
+          await new Promise(r => setTimeout(r, delay));
+        } else {
+          logLine('ERR', 'All attempts failed.');
+          setStatus('Failed after retries. See logs.');
+        }
+      }
+      resetUI();
+    });
+
+    // ---------- Single Attempt Upload ----------
+    async function doUploadOnce(tryMsg){
+      return new Promise((resolve) => {
+        try{
+          const fd = new FormData();
+          fd.append('file', currentFile, currentFile.name);
+
+          xhr = new XMLHttpRequest();
+          xhr.open('POST', fullUrl(), true);
+          xhr.responseType = 'text';
+
+          const token = tokenEl.value.trim();
+          if(token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+
+          // Optional: Accept header helps some servers choose a cleaner format
+          xhr.setRequestHeader('Accept', 'text/markdown, text/plain, application/json;q=0.9, */*;q=0.1');
+
+          // Timeouts
+          xhr.timeout = 5 * 60 * 1000; // 5 min
+          let lastPct = 0;
+
+          // Progress handlers
+          xhr.upload.onprogress = (e) => {
+            if(e.lengthComputable){
+              const pct = Math.round((e.loaded / e.total) * 100);
+              if(pct !== lastPct){
+                setProg(pct);
+                setStatus(`Uploading… ${pct}% (${tryMsg})`);
+                lastProgTs = performance.now();
+                lastPct = pct;
+              }
+            } else {
+              setStatus(`Uploading… (${tryMsg})`);
+            }
+          };
+
+          xhr.onloadstart = () => {
+            logLine('INFO', `${tryMsg} — sending multipart/form-data…`);
+            setStatus(`Sending… (${tryMsg})`);
+            startWatchdog();
+            cancelBtn.disabled = false;
+          };
+
+          xhr.onerror = () => {
+            stopWatchdog();
+            logLine('ERR', `${tryMsg} — Network error (CORS or connectivity).`);
+            setStatus('Network error – likely CORS if from a browser. Consider using a proxy.');
+            // resolve false for retry
+            resolve(false);
+          };
+
+          xhr.ontimeout = () => {
+            stopWatchdog();
+            logLine('ERR', `${tryMsg} — Request timed out.`);
+            setStatus('Timed out. Try again or use a proxy.');
+            resolve(false);
+          };
+
+          xhr.onload = () => {
+            stopWatchdog();
+            const status = xhr.status;
+            const raw = xhr.responseText || '';
+            logLine('INFO', `${tryMsg} — Response status: ${status}`);
+
+            // Retryable statuses
+            if(status === 0){
+              logLine('ERR', `${tryMsg} — Status 0 (opaque/CORS or aborted).`);
+              setStatus('Opaque/CORS/Aborted.');
+              resolve(false); return;
+            }
+
+            if(status >= 200 && status < 300){
+              // Parse
+              let md = '';
+              try{
+                if(isLikelyJSON(raw)){
+                  const j = JSON.parse(raw);
+                  md = j.markdown || j.data?.markdown || j.text || j.data?.text || '';
+                  if(!md){
+                    md = '# JSON Response (no explicit markdown field)\n\n```json\n' + prettyJSON(j) + '\n```';
+                    logLine('WARN','Parsed JSON without markdown/text fields. Dumping JSON.');
+                  } else {
+                    logLine('OK','Parsed JSON response and extracted markdown/text.');
+                  }
+                } else {
+                  md = raw;
+                  logLine('OK','Response treated as text/markdown.');
+                }
+              } catch(err){
+                logLine('ERR','Failed to parse response: ' + (err?.message || err));
+                setStatus('Failed to parse response.');
+                resolve(false); return;
+              }
+              out.value = md;
+              len.textContent = md ? `${md.length} chars` : '';
+              dl.disabled = !md;
+              copyBtn.disabled = !md;
+              setStatus('Done.');
+              resolve(true); return;
+            }
+
+            // Non-2xx: show excerpt and decide retry
+            const excerpt = raw.slice(0, 2000);
+            out.value = `# Error ${status}\n\n${excerpt}`;
+            dl.disabled = true; copyBtn.disabled = false;
+            setStatus(`HTTP ${status} — see output/logs`);
+
+            if([429, 500, 502, 503, 504].includes(status)){
+              logLine('WARN', `${tryMsg} — Retryable HTTP ${status}.`);
+              resolve(false);
+            } else {
+              logLine('ERR', `${tryMsg} — Non-retryable HTTP ${status}.`);
+              resolve(true); // stop retrying
+            }
+          };
+
+          xhr.send(fd);
+        } catch(err){
+          stopWatchdog();
+          logLine('ERR','Send failed: ' + (err?.message || err));
+          setStatus('Send failed. Possibly CORS or network.');
+          resolve(false);
+        }
+      });
+    }
+
+    // ---------- Download & Copy ----------
+    dl.addEventListener('click', () => {
+      const blob = new Blob([out.value], {type:'text/markdown;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = (nameEl.value.trim() || 'ocr-output.md');
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+      logLine('OK','Markdown downloaded.');
+    });
+    copyBtn.addEventListener('click', async () => {
+      try{ await navigator.clipboard.writeText(out.value); setStatus('Copied to clipboard.'); logLine('OK','Copied result to clipboard.'); }
+      catch{ setStatus('Copy failed. Select and copy manually.'); logLine('WARN','Clipboard write failed.'); }
+    });
+
+    // ---------- Init ----------
+    loadSettings();
+    buildCurl();
+
+    // Keyboard shortcut: Ctrl/Cmd+Enter
+    document.addEventListener('keydown', (e) => {
+      if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='enter'){ startBtn.click(); }
+    });
+
+  </script>
+</body>
+</html>
