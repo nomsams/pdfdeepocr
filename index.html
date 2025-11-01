@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DeepSeek OCR → Markdown (PDF) — Robust Client</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>DeepSeek OCR → Markdown (PDF) — Max-Failsafe Client</title>
   <style>
     :root{
       --bg:#0f1115; --panel:#151923; --muted:#232836; --text:#e6e6e6; --accent:#62d0ff; --ok:#30d158; --warn:#ffcc00; --err:#ff453a;
       --shadow:0 8px 30px rgba(0,0,0,.35);
     }
     html,body{height:100%}
-    body{margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";}
-    .wrap{max-width:1000px; margin:24px auto; padding:0 16px;}
+    body{margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial}
+    .wrap{max-width:1100px; margin:24px auto; padding:0 16px;}
     h1{font-size:20px; margin:0 0 8px}
     .sub{opacity:.75; margin-bottom:16px}
     .grid{display:grid; gap:12px}
@@ -19,11 +19,10 @@
     .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
     .row .grow{flex:1}
     label{display:block; font-weight:600; margin-bottom:6px}
-    input[type="text"], input[type="url"], input[type="password"], input[type="number"]{
-      width:100%; background:#0d1017; border:1px solid var(--muted); color:var(--text);
-      padding:10px 12px; border-radius:10px; outline:none;
+    input[type="text"],input[type="url"],input[type="password"],input[type="number"],select{
+      width:100%; background:#0d1017; border:1px solid var(--muted); color:var(--text); padding:10px 12px; border-radius:10px; outline:none;
     }
-    input:focus{border-color:var(--accent)}
+    input:focus,select:focus{border-color:var(--accent)}
     .drop{border:2px dashed var(--muted); border-radius:14px; padding:22px; text-align:center; transition:.2s border-color,.2s background; cursor:pointer; user-select:none;}
     .drop.dragover{border-color:var(--accent); background:#0c111b}
     .muted{opacity:.7}
@@ -35,62 +34,62 @@
     .btn.ok{background:var(--ok); color:#001a08}
     .bar{height:10px; background:#0c1018; border:1px solid var(--muted); border-radius:999px; overflow:hidden}
     .bar>span{display:block; height:100%; width:0%; background:linear-gradient(90deg, var(--accent), #79ffa8); transition:width .15s}
-    pre, code, textarea{background:#0b0f15; color:#eaeffb; border:1px solid var(--muted); border-radius:10px}
+    pre,textarea{background:#0b0f15; color:#eaeffb; border:1px solid var(--muted); border-radius:10px}
     pre{padding:12px; overflow:auto; max-height:420px; white-space:pre-wrap}
-    textarea{width:100%; min-height:240px; padding:12px; resize:vertical}
+    textarea{width:100%; min-height:260px; padding:12px; resize:vertical}
     .cols{display:grid; grid-template-columns:1fr; gap:12px}
     @media(min-width:980px){ .cols{grid-template-columns:1fr 1fr} }
-    small.code{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; opacity:.8}
-    .pill{display:inline-block; padding:4px 8px; border-radius:999px; background:#101522; border:1px solid var(--muted); font-size:12px; opacity:.85}
-    .kbd{font:600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; background:#0b0f15; border:1px solid var(--muted); padding:2px 6px; border-radius:6px}
     .kv{display:grid; grid-template-columns:180px 1fr; gap:6px 10px; align-items:center}
     .tag{display:inline-block; padding:2px 8px; border-radius:999px; font:600 11px ui-monospace; margin-right:6px}
     .info{background:#0f1a2a; border:1px solid #22304b}
     .warn{background:#2a220f; border:1px solid #4b4022}
     .err{background:#2a0f0f; border:1px solid #4b2222}
     .ok{background:#0f2a1a; border:1px solid #224b30}
-    .log-head{display:flex; gap:8px; align-items:center; margin-bottom:6px}
-    .switch{display:inline-flex; align-items:center; gap:6px; user-select:none}
-    .switch input{width:auto}
+    .small{font:12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono"}
+    details > summary{cursor:pointer}
+    .pill{display:inline-block; padding:4px 8px; border-radius:999px; background:#101522; border:1px solid var(--muted); font-size:12px; opacity:.85}
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>DeepSeek OCR → Markdown</h1>
-    <div class="sub">Uploads a PDF via <span class="pill">multipart/form-data</span> to <span class="pill">/models/v1/deepseek/deepseek-ocr/inference</span> with retries, watchdog, and detailed logs.</div>
+    <div class="sub">Uploads a PDF to <span class="pill">/models/v1/deepseek/deepseek-ocr/inference</span> with a multi-proxy auto-fallback chain (5 free options), no-preflight form mode, backoff, and extensive logs.</div>
 
     <div class="grid">
       <div class="card">
         <div class="row">
           <div class="grow">
-            <label for="endpoint">API Endpoint</label>
-            <input id="endpoint" type="url" spellcheck="false" value="https://api.alphaxiv.org/models/v1/deepseek/deepseek-ocr/inference" />
+            <label for="endpoint">DeepSeek Endpoint</label>
+            <input id="endpoint" type="url" value="https://api.alphaxiv.org/models/v1/deepseek/deepseek-ocr/inference"/>
           </div>
           <div class="grow">
-            <label for="proxy">Proxy URL (optional)</label>
-            <input id="proxy" type="url" placeholder="https://your-proxy.example.com/" spellcheck="false" />
-            <small class="muted">Use for CORS. Proxy should faithfully forward method, headers, and body.</small>
-          </div>
-        </div>
-        <div class="row">
-          <div class="grow">
-            <label for="token">Authorization (optional)</label>
-            <input id="token" type="password" placeholder="Bearer token (if required)" />
-            <small class="muted">Sends <span class="pill">Authorization: Bearer &lt;token&gt;</span> when provided.</small>
-          </div>
-          <div style="min-width:220px">
             <label for="filename">Output filename (.md)</label>
-            <input id="filename" type="text" value="ocr-output.md" />
+            <input id="filename" type="text" value="ocr-output.md"/>
           </div>
-          <div style="min-width:180px">
+          <div style="min-width:160px">
             <label for="maxSize">Max file size (MB)</label>
-            <input id="maxSize" type="number" value="100" min="1" max="2048" />
+            <input id="maxSize" type="number" value="100" min="1" max="2048"/>
           </div>
         </div>
+
         <div class="row">
-          <label class="switch"><input id="hashToggle" type="checkbox" /> Compute SHA-256 of PDF (slower)</label>
-          <label class="switch"><input id="persistToggle" type="checkbox" checked/> Remember settings</label>
-          <label class="switch"><input id="retryToggle" type="checkbox" checked/> Enable retry/backoff</label>
+          <div class="grow">
+            <label for="corsKey">proxy.cors.sh API key (optional)</label>
+            <input id="corsKey" type="text" placeholder="x-cors-api-key (optional for proxy.cors.sh)"/>
+            <small class="muted">Leave empty to try without a key (may rate-limit). If you have a free key, add it here.</small>
+          </div>
+          <div class="grow">
+            <label for="customProxy">Add custom proxy candidate (optional)</label>
+            <input id="customProxy" type="url" placeholder="https://your-public-proxy.example.com/style"/>
+            <small class="muted">Will be tried after built-ins. Should forward POST multipart and add CORS headers.</small>
+          </div>
+        </div>
+
+        <div class="row">
+          <label class="small"><input id="retryToggle" type="checkbox" checked/> Retry/backoff</label>
+          <label class="small"><input id="hashToggle" type="checkbox"/> SHA-256 hash</label>
+          <label class="small"><input id="persistToggle" type="checkbox" checked/> Remember settings</label>
+          <label class="small"><input id="formFallbackToggle" type="checkbox" checked/> Enable no-preflight form fallback</label>
         </div>
       </div>
 
@@ -98,8 +97,8 @@
         <label>PDF File</label>
         <div id="drop" class="drop">
           <div><strong>Drag & drop</strong> a PDF here or click to select</div>
-          <div class="muted" style="margin-top:6px">Only <b>.pdf</b>. Magic-byte checked.</div>
-          <input id="file" type="file" accept="application/pdf" style="display:none" />
+          <div class="muted" style="margin-top:6px">Magic-byte checked; only <b>.pdf</b>.</div>
+          <input id="file" type="file" accept="application/pdf" style="display:none"/>
         </div>
         <div id="picked" class="muted" style="margin-top:8px"></div>
         <div class="kv" style="margin-top:8px">
@@ -126,422 +125,303 @@
           </div>
         </div>
         <div>
-          <div class="log-head">
-            <label>Logs</label>
-            <span class="tag info">INFO</span><span class="tag warn">WARN</span><span class="tag err">ERR</span><span class="tag ok">OK</span>
-          </div>
+          <label>Logs</label>
           <pre id="log" aria-live="polite">Ready.</pre>
           <label style="margin-top:12px">cURL (equivalent)</label>
           <pre id="curl" class="small"></pre>
+          <details style="margin-top:10px">
+            <summary><strong>What the app will try (in order)</strong></summary>
+            <ol class="small">
+              <li>Direct XHR → <code>https://api.alphaxiv.org/models/v1/deepseek/deepseek-ocr/inference</code></li>
+              <li>Proxy A (POST): <code>https://proxy.cors.sh/&lt;endpoint&gt;</code> (adds optional <code>x-cors-api-key</code>)</li>
+              <li>Proxy B (POST?): <code>https://cors.isomorphic-git.org/&lt;endpoint&gt;</code></li>
+              <li>Proxy C (likely GET-only): <code>https://thingproxy.freeboard.io/fetch/&lt;endpoint&gt;</code></li>
+              <li>Proxy D (GET-only): <code>https://api.allorigins.win/raw?url=&lt;endpoint&gt;</code></li>
+              <li>Proxy E (GET-only): <code>https://yacdn.org/proxy/&lt;endpoint&gt;</code></li>
+              <li>Your custom proxy (if provided)</li>
+              <li>For any candidate: if XHR fails/preflights and form-fallback enabled → try hidden HTML form (no-preflight) to same candidate.</li>
+            </ol>
+          </details>
         </div>
       </div>
 
       <div class="card">
         <details>
-          <summary><strong>Troubleshooting & Notes</strong></summary>
-          <ul>
-            <li><b>CORS:</b> If you see a generic “Network error,” the server likely blocks browser origins. Use a proxy you control; put its URL in “Proxy URL”.</li>
-            <li><b>Retries:</b> Enabled by default for HTTP 429/5xx and network errors. Backoff: 1s, 2s, 4s (configurable in code).</li>
-            <li><b>Watchdog:</b> Detects upload stalls and warns after inactivity (default 15s). You can cancel and retry.</li>
-            <li><b>Response formats:</b> The app accepts raw Markdown, or JSON containing <code>markdown</code> or <code>text</code> fields.</li>
-            <li><b>Hashing:</b> SHA-256 is optional; it can be slow for large PDFs on low-end devices.</li>
-            <li><b>Local settings:</b> Toggle “Remember settings” to persist endpoint, proxy, token, file size limit, and your preferences.</li>
+          <summary><strong>Reality check & tips</strong></summary>
+          <ul class="small">
+            <li>Public proxies can be down, rate-limited, or block POST. This app probes quickly and moves on.</li>
+            <li><b>proxy.cors.sh</b> often works for POST multipart. Add an <code>x-cors-api-key</code> if you have one (free keys exist but rotate).</li>
+            <li>For consistent reliability, a tiny free Cloudflare Worker (your account) is ideal; but this file avoids any setup per your request.</li>
+            <li>CLI always works: <code>curl -X POST "https://api.alphaxiv.org/models/v1/deepseek/deepseek-ocr/inference" -F "file=@report.pdf"</code></li>
           </ul>
         </details>
       </div>
     </div>
   </div>
 
+  <!-- Hidden iframe + form for no-preflight -->
+  <iframe name="sink" id="sink" style="display:none"></iframe>
+  <form id="nofetchForm" target="sink" method="POST" enctype="multipart/form-data" style="display:none">
+    <input type="file" name="file" id="nofetchFile"/>
+  </form>
+
   <script>
-    // ---------- DOM & State ----------
-    const qs = s => document.querySelector(s);
-    const drop = qs('#drop');
-    const fileInput = qs('#file');
-    const picked = qs('#picked');
-    const magicEl = qs('#magic');
-    const shaEl = qs('#sha');
-    const startBtn = qs('#start');
-    const cancelBtn = qs('#cancel');
-    const saveLogsBtn = qs('#saveLogs');
-    const statusEl = qs('#status');
-    const prog = qs('#prog');
-    const out = qs('#output');
-    const len = qs('#len');
-    const log = qs('#log');
-    const dl = qs('#download');
-    const copyBtn = qs('#copy');
-    const curlPre = qs('#curl');
+    // ===== DOM =====
+    const qs=s=>document.querySelector(s);
+    const drop=qs('#drop'), fileInput=qs('#file'), picked=qs('#picked');
+    const magicEl=qs('#magic'), shaEl=qs('#sha');
+    const startBtn=qs('#start'), cancelBtn=qs('#cancel'), saveLogsBtn=qs('#saveLogs');
+    const statusEl=qs('#status'), prog=qs('#prog'), out=qs('#output'), len=qs('#len'), logEl=qs('#log'), dl=qs('#download'), copyBtn=qs('#copy'), curlPre=qs('#curl');
+    const endpointEl=qs('#endpoint'), filenameEl=qs('#filename'), maxSizeEl=qs('#maxSize');
+    const corsKeyEl=qs('#corsKey'), customProxyEl=qs('#customProxy');
+    const retryToggle=qs('#retryToggle'), hashToggle=qs('#hashToggle'), persistToggle=qs('#persistToggle'), formFallbackToggle=qs('#formFallbackToggle');
+    const form=qs('#nofetchForm'), formFile=qs('#nofetchFile'), sink=qs('#sink');
 
-    const endpointEl = qs('#endpoint');
-    const proxyEl = qs('#proxy');
-    const tokenEl = qs('#token');
-    const nameEl = qs('#filename');
-    const maxSizeEl = qs('#maxSize');
-    const hashToggle = qs('#hashToggle');
-    const persistToggle = qs('#persistToggle');
-    const retryToggle = qs('#retryToggle');
+    // ===== State =====
+    let currentFile=null, xhr=null, attempt=0;
+    const MAX_ATTEMPTS=2, BACKOFF_BASE_MS=900, WATCHDOG_IDLE_MS=15000;
+    let lastProgTs=0, watchdogTimer=null, logBuffer=['Ready.'];
 
-    let currentFile = null;
-    let xhr = null;
-    let attempt = 0;
-    const MAX_ATTEMPTS = 3;               // total attempts with backoff
-    const BACKOFF_BASE_MS = 1000;         // 1s, 2s, 4s
-    const WATCHDOG_IDLE_MS = 15000;       // stall detector (no upload progress)
-    let lastProgTs = 0;
-    let watchdogTimer = null;
-    let logBuffer = ['Ready.'];
+    // ===== Utils =====
+    const now=()=>new Date().toISOString().replace('T',' ').replace('Z','');
+    function logLine(level,msg){const line=`[${now()}] [${(level||'INFO').toUpperCase()}] ${msg}`; logBuffer.push(line); logEl.textContent=logBuffer.join('\n'); logEl.scrollTop=logEl.scrollHeight;}
+    function setStatus(m){statusEl.textContent=m;}
+    function setProg(p){prog.style.width=(Math.max(0,Math.min(100,p))||0)+'%';}
+    function resetUI(){setStatus(''); setProg(0); startBtn.disabled=false; cancelBtn.disabled=true; saveLogsBtn.disabled=logBuffer.length<=1; stopWatchdog();}
+    function startWatchdog(){stopWatchdog(); lastProgTs=performance.now(); watchdogTimer=setInterval(()=>{if(performance.now()-lastProgTs>WATCHDOG_IDLE_MS) logLine('WARN','No upload progress — likely stall/CORS.');},2500);}
+    function stopWatchdog(){if(watchdogTimer){clearInterval(watchdogTimer); watchdogTimer=null;}}
+    function isLikelyJSON(s){const t=s.trim(); if(!(t.startsWith('{')&&t.endsWith('}'))&&!(t.startsWith('[')&&t.endsWith(']'))) return false; try{JSON.parse(t); return true;}catch{return false;}}
+    function prettyJSON(o){try{return JSON.stringify(o,null,2);}catch{return String(o);}}
+    function shellEscape(s){return `'${String(s).replace(/'/g,"'\\''")}'`;}
+    function isValidHttpUrl(u){try{const x=new URL(u); return ['http:','https:'].includes(x.protocol);}catch{return false;}}
 
-    // ---------- Utils ----------
-    const now = () => new Date().toISOString().replace('T',' ').replace('Z','');
-    function logLine(level, msg) {
-      const tag = (level||'INFO').toUpperCase();
-      const line = `[${now()}] [${tag}] ${msg}`;
-      logBuffer.push(line);
-      log.textContent = logBuffer.join('\n');
-      log.scrollTop = log.scrollHeight;
-    }
-    function setStatus(msg){ statusEl.textContent = msg; }
-    function setProg(p){ prog.style.width = (Math.max(0, Math.min(100, p)) || 0) + '%'; }
-    function resetUI(){
-      setStatus(''); setProg(0);
-      startBtn.disabled = false; cancelBtn.disabled = true;
-      saveLogsBtn.disabled = logBuffer.length <= 1;
-      stopWatchdog();
-    }
-    function startWatchdog() {
-      stopWatchdog();
-      lastProgTs = performance.now();
-      watchdogTimer = setInterval(() => {
-        const idle = performance.now() - lastProgTs;
-        if (idle > WATCHDOG_IDLE_MS) {
-          logLine('WARN', `No upload progress for ${(idle/1000).toFixed(1)}s — connection may be stalled (CORS or network).`);
-        }
-      }, 2500);
-    }
-    function stopWatchdog(){ if(watchdogTimer){ clearInterval(watchdogTimer); watchdogTimer = null; } }
-
-    function shellEscape(s){ return `'${String(s).replace(/'/g,"'\\''")}'`; }
-    function fullUrl(){
-      const endpoint = endpointEl.value.trim();
-      const proxy = proxyEl.value.trim();
-      return proxy ? (proxy.endsWith('/') ? proxy : proxy) : endpoint;
-    }
-    function isValidHttpUrl(u){
-      try{ const x = new URL(u); return x.protocol === 'https:' || x.protocol === 'http:'; }
-      catch{ return false; }
-    }
-    function isLikelyJSON(s){
-      const t = s.trim();
-      if(!(t.startsWith('{') && t.endsWith('}')) && !(t.startsWith('[') && t.endsWith(']'))) return false;
-      try { JSON.parse(t); return true; } catch { return false; }
-    }
-    function prettyJSON(obj){ try { return JSON.stringify(obj, null, 2); } catch { return String(obj); } }
-
-    // ---------- Settings Persistence ----------
-    const LS_KEY = 'deepseek_ocr_client_settings';
+    // ===== Settings persist =====
+    const LS_KEY='deepseek_maxfailsafe_settings';
     function saveSettings(){
-      if(!persistToggle.checked) { localStorage.removeItem(LS_KEY); return; }
-      const obj = {
-        endpoint: endpointEl.value, proxy: proxyEl.value, token: tokenEl.value,
-        filename: nameEl.value, maxSize: maxSizeEl.value, doHash: hashToggle.checked,
-        persist: persistToggle.checked, retry: retryToggle.checked
-      };
-      localStorage.setItem(LS_KEY, JSON.stringify(obj));
+      if(!persistToggle.checked){localStorage.removeItem(LS_KEY); return;}
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        endpoint:endpointEl.value, filename:filenameEl.value, maxSize:maxSizeEl.value,
+        corsKey:corsKeyEl.value, customProxy:customProxyEl.value,
+        retry:retryToggle.checked, hash:hashToggle.checked, persist:persistToggle.checked, formFallback:formFallbackToggle.checked
+      }));
     }
     function loadSettings(){
-      try{
-        const raw = localStorage.getItem(LS_KEY);
-        if(!raw) return;
-        const s = JSON.parse(raw);
-        if(s.endpoint) endpointEl.value = s.endpoint;
-        if(s.proxy) proxyEl.value = s.proxy;
-        if(s.token) tokenEl.value = s.token;
-        if(s.filename) nameEl.value = s.filename;
-        if(s.maxSize) maxSizeEl.value = s.maxSize;
-        if(typeof s.doHash === 'boolean') hashToggle.checked = s.doHash;
-        if(typeof s.persist === 'boolean') persistToggle.checked = s.persist;
-        if(typeof s.retry === 'boolean') retryToggle.checked = s.retry;
-      } catch{}
+      try{const s=JSON.parse(localStorage.getItem(LS_KEY)||'null'); if(!s) return;
+        if(s.endpoint) endpointEl.value=s.endpoint;
+        if(s.filename) filenameEl.value=s.filename;
+        if(s.maxSize) maxSizeEl.value=s.maxSize;
+        if(s.corsKey) corsKeyEl.value=s.corsKey;
+        if(s.customProxy) customProxyEl.value=s.customProxy;
+        if(typeof s.retry==='boolean') retryToggle.checked=s.retry;
+        if(typeof s.hash==='boolean') hashToggle.checked=s.hash;
+        if(typeof s.persist==='boolean') persistToggle.checked=s.persist;
+        if(typeof s.formFallback==='boolean') formFallbackToggle.checked=s.formFallback;
+      }catch{}
     }
-    [endpointEl, proxyEl, tokenEl, nameEl, maxSizeEl, hashToggle, persistToggle, retryToggle].forEach(el => el.addEventListener('input', saveSettings));
+    [endpointEl,filenameEl,maxSizeEl,corsKeyEl,customProxyEl,retryToggle,hashToggle,persistToggle,formFallbackToggle].forEach(el=>el.addEventListener('input',saveSettings));
 
-    // ---------- cURL Builder ----------
+    // ===== Proxies (5 built-ins + custom) =====
+    function endpoint(){return endpointEl.value.trim();}
+    function buildCandidates(){
+      const e = endpoint();
+      const K = corsKeyEl.value.trim();
+
+      // descriptor: {label, url, method:'POST', headers:{}, capability:'post'|'get', addKey?:boolean}
+      const candidates = [
+        { label:'Direct', url:e, headers:{}, capability:'post' },
+
+        // POST-capable first
+        { label:'proxy.cors.sh', url:`https://proxy.cors.sh/${e}`, headers: K ? {'x-cors-api-key':K} : {}, capability:'post' },
+        { label:'cors.isomorphic-git.org', url:`https://cors.isomorphic-git.org/${e}`, headers:{}, capability:'post' },
+
+        // Likely GET-only (we’ll skip POST XHR and go to form-fallback if enabled, else skip fast)
+        { label:'thingproxy.freeboard.io', url:`https://thingproxy.freeboard.io/fetch/${e}`, headers:{}, capability:'maybe-post' },
+        { label:'allorigins', url:`https://api.allorigins.win/raw?url=${encodeURIComponent(e)}`, headers:{}, capability:'get-only' },
+        { label:'yacdn', url:`https://yacdn.org/proxy/${e}`, headers:{}, capability:'get-only' },
+      ];
+
+      const custom = customProxyEl.value.trim();
+      if(custom){
+        // Assume path-style where you append target; if the URL already contains http(s), we use as-is.
+        // Many public proxies expect style: https://proxy/https://target
+        const customUrl = custom.includes('http') ? custom : (custom.replace(/\/+$/,'') + '/' + e);
+        candidates.push({ label:'CustomProxy', url:customUrl, headers:{}, capability:'post' });
+      }
+      return candidates;
+    }
+
+    // ===== cURL preview =====
     function buildCurl(){
-      const url = fullUrl();
-      const token = tokenEl.value.trim();
+      const e = endpoint();
       const fn = currentFile?.name || 'report.pdf';
-      let cmd = `curl -X POST ${shellEscape(url)} \\\n  -F file=@${shellEscape(fn)}`;
-      if(token) cmd += ` \\\n  -H "Authorization: Bearer ${token.replace(/"/g,'\\"')}"`;
-      curlPre.textContent = cmd + (proxyEl.value ? `\n# Note: proxied via ${proxyEl.value}` : '');
+      let cmd = `# Direct (likely CORS-fails in browser)\ncurl -X POST ${shellEscape(e)} \\\n  -F file=@${shellEscape(fn)}`;
+      const K = corsKeyEl.value.trim();
+      const list = buildCandidates().filter(c=>c.label!=='Direct');
+      for(const c of list){
+        cmd += `\n\n# ${c.label}\ncurl -X POST ${shellEscape(c.url)} \\\n  -F file=@${shellEscape(fn)}`;
+        if(c.label==='proxy.cors.sh' && K) cmd += ` \\\n  -H "x-cors-api-key: ${K.replace(/"/g,'\\"')}"`;
+      }
+      curlPre.textContent = cmd;
     }
-    [endpointEl, proxyEl, tokenEl].forEach(el => el.addEventListener('input', buildCurl));
+    [endpointEl,corsKeyEl,customProxyEl].forEach(el=>el.addEventListener('input',buildCurl));
 
-    // ---------- PDF Validation ----------
-    async function readMagicBytes(file, n=8){
-      return new Promise((resolve,reject) => {
-        const fr = new FileReader();
-        fr.onload = () => resolve(new Uint8Array(fr.result));
-        fr.onerror = () => reject(fr.error);
-        fr.readAsArrayBuffer(file.slice(0, n));
-      });
-    }
-    function pdfMagicOK(bytes){ // %PDF-
-      const sig = new TextDecoder().decode(bytes);
-      return sig.startsWith('%PDF-');
-    }
-    async function sha256(file){
-      const buf = await file.arrayBuffer();
-      const hash = await crypto.subtle.digest('SHA-256', buf);
-      const bytes = Array.from(new Uint8Array(hash));
-      return bytes.map(b => b.toString(16).padStart(2,'0')).join('');
-    }
+    // ===== PDF checks =====
+    async function readMagicBytes(file,n=8){return new Uint8Array(await file.slice(0,n).arrayBuffer());}
+    function pdfMagicOK(bytes){return new TextDecoder().decode(bytes).startsWith('%PDF-');}
+    async function sha256(file){const buf=await file.arrayBuffer(); const hash=await crypto.subtle.digest('SHA-256',buf); return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');}
 
-    // ---------- File Pick/Drop ----------
-    drop.addEventListener('click', () => fileInput.click());
-    ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.add('dragover'); }));
-    ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove('dragover'); }));
-    drop.addEventListener('drop', handleFileFromEvent);
-    fileInput.addEventListener('change', e => handleFile(e.target.files?.[0]));
+    // ===== File pick/drop =====
+    drop.addEventListener('click',()=>fileInput.click());
+    ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.add('dragover');}));
+    ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('dragover');}));
+    drop.addEventListener('drop',e=>handleFile(e.dataTransfer.files?.[0]));
+    fileInput.addEventListener('change',e=>handleFile(e.target.files?.[0]));
 
-    function handleFileFromEvent(e){
-      const f = e.dataTransfer.files?.[0];
-      handleFile(f);
-    }
     async function handleFile(f){
       if(!f) return;
-      if(f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')){
-        alert('Please choose a .pdf file.'); return;
-      }
-      const maxBytes = Number(maxSizeEl.value || 100) * 1024 * 1024;
-      if(f.size > maxBytes){
-        alert(`File too large. Limit: ${(maxBytes/1024/1024).toFixed(0)} MB.`);
-        return;
-      }
-      currentFile = f;
-      picked.textContent = `Selected: ${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`;
-      nameEl.value = (f.name.replace(/\.pdf$/i,'') || 'ocr-output') + '.md';
+      if(f.type!=='application/pdf' && !f.name.toLowerCase().endsWith('.pdf')){ alert('Please choose a .pdf file.'); return; }
+      const maxBytes = Number(maxSizeEl.value||100)*1024*1024;
+      if(f.size>maxBytes){ alert(`File too large. Limit ${(maxBytes/1024/1024).toFixed(0)} MB.`); return; }
+      currentFile=f;
+      picked.textContent=`Selected: ${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`;
+      filenameEl.value=(f.name.replace(/\.pdf$/i,'')||'ocr-output')+'.md';
       buildCurl();
-      // Magic bytes
-      try{
-        const mb = await readMagicBytes(f);
-        const ok = pdfMagicOK(mb);
-        magicEl.textContent = ok ? 'OK — %PDF- signature present' : 'Unexpected header (not %PDF-)';
-        logLine(ok?'OK':'WARN', ok ? 'PDF magic bytes validated.' : 'Header not matching %PDF-. File may still be a PDF.');
-      } catch(err){
-        magicEl.textContent = 'Could not read header';
-        logLine('WARN','Could not read magic bytes: ' + (err?.message || err));
-      }
-      // SHA256 optional
-      shaEl.textContent = '—';
-      if(hashToggle.checked){
-        try{
-          setStatus('Hashing PDF (SHA-256)…');
-          const h = await sha256(f);
-          shaEl.textContent = h;
-          logLine('OK','Computed SHA-256: ' + h);
-          setStatus('');
-        }catch(err){
-          shaEl.textContent = 'hash failed';
-          logLine('WARN','SHA-256 failed: ' + (err?.message || err));
-        }
-      }
+
+      try{const mb=await readMagicBytes(f); const ok=pdfMagicOK(mb); magicEl.textContent=ok?'OK — %PDF- signature present':'Unexpected header (not %PDF-)'; logLine(ok?'OK':'WARN', ok?'PDF header ok':'Header not %PDF-, may still be a PDF.');}
+      catch(e){magicEl.textContent='Could not read header'; logLine('WARN','Magic read failed: '+e);}
+      shaEl.textContent='—'; if(hashToggle.checked){try{setStatus('Hashing (SHA-256)…'); const h=await sha256(f); shaEl.textContent=h; logLine('OK','SHA-256: '+h); setStatus('');}catch(e){shaEl.textContent='hash failed'; logLine('WARN','Hash failed: '+e);}}
       saveSettings();
     }
 
-    // ---------- Actions ----------
-    cancelBtn.addEventListener('click', () => {
-      if(xhr){ xhr.abort(); logLine('WARN','Upload aborted by user.'); setStatus('Canceled'); resetUI(); }
-    });
-    saveLogsBtn.addEventListener('click', () => {
-      const blob = new Blob([logBuffer.join('\n')], {type:'text/plain;charset=utf-8'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `deepseek-ocr-logs-${Date.now()}.txt`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-    });
+    // ===== Actions =====
+    cancelBtn.addEventListener('click',()=>{ if(xhr){ xhr.abort(); logLine('WARN','Aborted by user.'); setStatus('Canceled'); resetUI(); } });
+    saveLogsBtn.addEventListener('click',()=>{ const blob=new Blob([logBuffer.join('\n')],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`deepseek-ocr-logs-${Date.now()}.txt`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); });
 
-    startBtn.addEventListener('click', async () => {
-      if(!currentFile){ alert('Please choose a PDF first.'); return; }
-      if(!isValidHttpUrl(fullUrl())){ alert('Invalid endpoint/proxy URL.'); return; }
+    document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='enter') startBtn.click(); });
 
-      out.value = ''; len.textContent = ''; dl.disabled = true; copyBtn.disabled = true;
-      saveLogsBtn.disabled = false;
-      logBuffer = ['Starting…']; log.textContent = logBuffer.join('\n');
-      setStatus('Initializing…'); setProg(0); startBtn.disabled = true; cancelBtn.disabled = true;
+    startBtn.addEventListener('click', async ()=>{
+      if(!currentFile){ alert('Pick a PDF first.'); return; }
+      if(!isValidHttpUrl(endpoint())){ alert('Invalid endpoint URL'); return; }
 
-      attempt = 0;
-      const maxAttempts = retryToggle.checked ? MAX_ATTEMPTS : 1;
+      out.value=''; len.textContent=''; dl.disabled=true; copyBtn.disabled=true; saveLogsBtn.disabled=false;
+      logBuffer=['Starting…']; logEl.textContent=logBuffer.join('\n'); setStatus('Initializing…'); setProg(0); startBtn.disabled=true; cancelBtn.disabled=true;
 
-      // Retry loop
-      while(attempt < maxAttempts){
-        attempt++;
-        const tryMsg = `Attempt ${attempt}/${maxAttempts}`;
-        logLine('INFO', `${tryMsg} — preparing form data.`);
-        const succeeded = await doUploadOnce(tryMsg);
-        if(succeeded){ break; }
-        if(attempt < maxAttempts){
-          const delay = BACKOFF_BASE_MS * Math.pow(2, attempt-1);
-          logLine('INFO', `Retrying in ${(delay/1000).toFixed(1)}s…`);
-          await new Promise(r => setTimeout(r, delay));
+      const candidates = buildCandidates();
+      for(const c of candidates){
+        // Skip GET-only proxies for POST xhr (we’ll only try form-fallback where possible)
+        const allowForm = (c.capability!=='get-only'); // we only attempt form where POST might be accepted
+        const willTryXHR = (c.capability==='post' || c.capability==='maybe-post');
+
+        // Try XHR path (multipart) if plausible:
+        if(willTryXHR){
+          const ok = await withRetries(label => xhrUpload(c.url, label, c.headers), c.label);
+          if(ok){ resetUI(); return; }
         } else {
-          logLine('ERR', 'All attempts failed.');
-          setStatus('Failed after retries. See logs.');
+          logLine('INFO', `${c.label} — marked GET-only; skipping XHR POST quickly.`);
+        }
+
+        // Try no-preflight HTML form path (only if enabled and proxy might accept POST)
+        if(formFallbackToggle.checked && allowForm){
+          const formOk = await withRetries(label => formUpload(c.url, label), c.label+' (form)');
+          if(formOk){ resetUI(); return; }
+        } else {
+          if(formFallbackToggle.checked===false) logLine('INFO', `${c.label} — form fallback disabled by user.`);
         }
       }
+
+      logLine('ERR','All candidates exhausted. Public proxies are unreliable for POST. Consider CLI curl or your own free Worker.');
+      setStatus('Failed across all fallbacks. See logs.');
       resetUI();
     });
 
-    // ---------- Single Attempt Upload ----------
-    async function doUploadOnce(tryMsg){
-      return new Promise((resolve) => {
+    async function withRetries(run,label){
+      const max = retryToggle.checked? MAX_ATTEMPTS : 1;
+      for(attempt=1; attempt<=max; attempt++){
+        const tryMsg = `${label} attempt ${attempt}/${max}`;
+        logLine('INFO', `${tryMsg} — starting`);
+        const ok = await run(tryMsg);
+        if(ok) return true;
+        if(attempt<max){ const delay=BACKOFF_BASE_MS*Math.pow(2,attempt-1); logLine('INFO', `${tryMsg} — retry in ${(delay/1000).toFixed(1)}s`); await new Promise(r=>setTimeout(r,delay)); }
+      }
+      return false;
+    }
+
+    // ===== XHR upload (multipart) =====
+    function xhrUpload(url, label, extraHeaders={}){
+      return new Promise(resolve=>{
         try{
-          const fd = new FormData();
-          fd.append('file', currentFile, currentFile.name);
+          const fd = new FormData(); fd.append('file', currentFile, currentFile.name);
+          xhr = new XMLHttpRequest(); xhr.open('POST', url, true); xhr.responseType='text';
+          // DO NOT send Authorization to third-party directly; we only set generic Accept + optional proxy header(s).
+          xhr.setRequestHeader('Accept','text/markdown, text/plain, application/json;q=0.9, */*;q=0.1');
+          for(const [k,v] of Object.entries(extraHeaders)) try{xhr.setRequestHeader(k, v);}catch{}
+          xhr.timeout = 5*60*1000;
 
-          xhr = new XMLHttpRequest();
-          xhr.open('POST', fullUrl(), true);
-          xhr.responseType = 'text';
-
-          const token = tokenEl.value.trim();
-          if(token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-
-          // Optional: Accept header helps some servers choose a cleaner format
-          xhr.setRequestHeader('Accept', 'text/markdown, text/plain, application/json;q=0.9, */*;q=0.1');
-
-          // Timeouts
-          xhr.timeout = 5 * 60 * 1000; // 5 min
-          let lastPct = 0;
-
-          // Progress handlers
-          xhr.upload.onprogress = (e) => {
-            if(e.lengthComputable){
-              const pct = Math.round((e.loaded / e.total) * 100);
-              if(pct !== lastPct){
-                setProg(pct);
-                setStatus(`Uploading… ${pct}% (${tryMsg})`);
-                lastProgTs = performance.now();
-                lastPct = pct;
-              }
-            } else {
-              setStatus(`Uploading… (${tryMsg})`);
-            }
-          };
-
-          xhr.onloadstart = () => {
-            logLine('INFO', `${tryMsg} — sending multipart/form-data…`);
-            setStatus(`Sending… (${tryMsg})`);
-            startWatchdog();
-            cancelBtn.disabled = false;
-          };
-
-          xhr.onerror = () => {
+          let lastPct=0;
+          xhr.upload.onprogress = (e)=>{ if(e.lengthComputable){ const pct=Math.round(e.loaded/e.total*100); if(pct!==lastPct){ setProg(pct); setStatus(`Uploading… ${pct}% (${label})`); lastProgTs=performance.now(); lastPct=pct; } } else { setStatus(`Uploading… (${label})`); } };
+          xhr.onloadstart = ()=>{ logLine('INFO', `${label} — sending multipart`); setStatus(`Sending… (${label})`); startWatchdog(); cancelBtn.disabled=false; };
+          xhr.onerror = ()=>{ stopWatchdog(); logLine('ERR', `${label} — network/CORS`); setStatus('Network/CORS'); resolve(false); };
+          xhr.ontimeout = ()=>{ stopWatchdog(); logLine('ERR', `${label} — timeout`); setStatus('Timeout'); resolve(false); };
+          xhr.onload = ()=>{
             stopWatchdog();
-            logLine('ERR', `${tryMsg} — Network error (CORS or connectivity).`);
-            setStatus('Network error – likely CORS if from a browser. Consider using a proxy.');
-            // resolve false for retry
-            resolve(false);
-          };
-
-          xhr.ontimeout = () => {
-            stopWatchdog();
-            logLine('ERR', `${tryMsg} — Request timed out.`);
-            setStatus('Timed out. Try again or use a proxy.');
-            resolve(false);
-          };
-
-          xhr.onload = () => {
-            stopWatchdog();
-            const status = xhr.status;
-            const raw = xhr.responseText || '';
-            logLine('INFO', `${tryMsg} — Response status: ${status}`);
-
-            // Retryable statuses
-            if(status === 0){
-              logLine('ERR', `${tryMsg} — Status 0 (opaque/CORS or aborted).`);
-              setStatus('Opaque/CORS/Aborted.');
-              resolve(false); return;
-            }
-
-            if(status >= 200 && status < 300){
-              // Parse
-              let md = '';
-              try{
-                if(isLikelyJSON(raw)){
-                  const j = JSON.parse(raw);
-                  md = j.markdown || j.data?.markdown || j.text || j.data?.text || '';
-                  if(!md){
-                    md = '# JSON Response (no explicit markdown field)\n\n```json\n' + prettyJSON(j) + '\n```';
-                    logLine('WARN','Parsed JSON without markdown/text fields. Dumping JSON.');
-                  } else {
-                    logLine('OK','Parsed JSON response and extracted markdown/text.');
-                  }
-                } else {
-                  md = raw;
-                  logLine('OK','Response treated as text/markdown.');
-                }
-              } catch(err){
-                logLine('ERR','Failed to parse response: ' + (err?.message || err));
-                setStatus('Failed to parse response.');
-                resolve(false); return;
-              }
-              out.value = md;
-              len.textContent = md ? `${md.length} chars` : '';
-              dl.disabled = !md;
-              copyBtn.disabled = !md;
-              setStatus('Done.');
-              resolve(true); return;
-            }
-
-            // Non-2xx: show excerpt and decide retry
-            const excerpt = raw.slice(0, 2000);
-            out.value = `# Error ${status}\n\n${excerpt}`;
-            dl.disabled = true; copyBtn.disabled = false;
-            setStatus(`HTTP ${status} — see output/logs`);
-
-            if([429, 500, 502, 503, 504].includes(status)){
-              logLine('WARN', `${tryMsg} — Retryable HTTP ${status}.`);
+            const status = xhr.status, raw = xhr.responseText||'';
+            logLine('INFO', `${label} — HTTP ${status}`);
+            if(status>=200 && status<300){ handleResponseText(raw); setStatus('Done.'); resolve(true); }
+            else{
+              out.value = `# Error ${status}\n\n${raw.slice(0,2000)}`; copyBtn.disabled=false; setStatus(`HTTP ${status}`);
+              // Treat 4xx/5xx as retryable because public proxies are flaky
               resolve(false);
-            } else {
-              logLine('ERR', `${tryMsg} — Non-retryable HTTP ${status}.`);
-              resolve(true); // stop retrying
             }
           };
-
           xhr.send(fd);
-        } catch(err){
-          stopWatchdog();
-          logLine('ERR','Send failed: ' + (err?.message || err));
-          setStatus('Send failed. Possibly CORS or network.');
-          resolve(false);
-        }
+        }catch(e){ stopWatchdog(); logLine('ERR', `${label} — send failed: ${e}`); setStatus('Send failed'); resolve(false); }
       });
     }
 
-    // ---------- Download & Copy ----------
-    dl.addEventListener('click', () => {
-      const blob = new Blob([out.value], {type:'text/markdown;charset=utf-8'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = (nameEl.value.trim() || 'ocr-output.md');
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-      logLine('OK','Markdown downloaded.');
-    });
-    copyBtn.addEventListener('click', async () => {
-      try{ await navigator.clipboard.writeText(out.value); setStatus('Copied to clipboard.'); logLine('OK','Copied result to clipboard.'); }
-      catch{ setStatus('Copy failed. Select and copy manually.'); logLine('WARN','Clipboard write failed.'); }
-    });
+    // ===== No-preflight HTML form via hidden iframe =====
+    function formUpload(url, label){
+      return new Promise(resolve=>{
+        try{
+          form.action = url; // no custom headers → no preflight
+          const dt = new DataTransfer(); dt.items.add(currentFile); formFile.files = dt.files;
 
-    // ---------- Init ----------
-    loadSettings();
-    buildCurl();
+          const listener = () => {
+            try{
+              const doc = sink.contentDocument || sink.contentWindow.document;
+              const text = doc && doc.body ? doc.body.textContent : '';
+              if(!text){ logLine('WARN', `${label} — empty/opaque iframe response`); resolve(false); }
+              else { handleResponseText(text); setStatus('Done.'); resolve(true); }
+            }catch(e){ logLine('ERR', `${label} — iframe read blocked (proxy must add CORS): ${e}`); resolve(false); }
+            sink.removeEventListener('load', listener);
+          };
+          sink.addEventListener('load', listener);
 
-    // Keyboard shortcut: Ctrl/Cmd+Enter
-    document.addEventListener('keydown', (e) => {
-      if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='enter'){ startBtn.click(); }
-    });
+          logLine('INFO', `${label} — submitting plain HTML form (no custom headers)`);
+          form.submit();
+        }catch(e){ logLine('ERR', `${label} — form submit failed: ${e}`); resolve(false); }
+      });
+    }
 
+    // ===== Response handling =====
+    function handleResponseText(raw){
+      let md='';
+      if(isLikelyJSON(raw)){
+        try{
+          const j=JSON.parse(raw);
+          md = j.markdown || j.data?.markdown || j.text || j.data?.text || '';
+          if(!md){ md='```json\n'+prettyJSON(j)+'\n```'; logLine('WARN','JSON without markdown/text field; dumped JSON.'); }
+          else { logLine('OK','Extracted markdown/text from JSON.'); }
+        }catch{ md=raw; }
+      } else md=raw;
+      out.value=md; len.textContent=md?`${md.length} chars`:''; dl.disabled=!md; copyBtn.disabled=!md;
+    }
+
+    // ===== Download & Copy =====
+    dl.addEventListener('click', ()=>{ const blob=new Blob([out.value],{type:'text/markdown;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=(filenameEl.value.trim()||'ocr-output.md'); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); logLine('OK','Markdown downloaded.');});
+    copyBtn.addEventListener('click', async ()=>{ try{await navigator.clipboard.writeText(out.value); setStatus('Copied.'); logLine('OK','Copied to clipboard.');}catch{setStatus('Copy failed'); logLine('WARN','Clipboard write failed.');}});
+
+    // ===== Init =====
+    loadSettings(); buildCurl();
   </script>
 </body>
 </html>
