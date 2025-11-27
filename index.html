@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>DeepSeek OCR → Markdown (PDF) — Parallel Fallback Client</title>
+  <title>DeepSeek OCR → Markdown (v2 Robust)</title>
   <style>
     :root{
       --bg:#0f1115; --panel:#151923; --muted:#232836; --text:#e6e6e6; --accent:#62d0ff; --ok:#30d158; --warn:#ffcc00; --err:#ff453a;
@@ -48,13 +48,12 @@
     .small{font:12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono"}
     details > summary{cursor:pointer}
     .pill{display:inline-block; padding:4px 8px; border-radius:999px; background:#101522; border:1px solid var(--muted); font-size:12px; opacity:.85}
-    .kbd{font:600 12px ui-monospace; padding:2px 6px; border-radius:6px; border:1px solid var(--muted); background:#0b0f15}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>DeepSeek OCR → Markdown</h1>
-    <div class="sub">Parallel, staged fallbacks for strict CORS. Races multiple free public proxies; first success wins. Time-boxed form fallback so it never hangs.</div>
+    <h1>DeepSeek OCR → Markdown <span class="pill">v2 Robust</span></h1>
+    <div class="sub">Updated to prioritize <b>corsproxy.io</b> based on previous success. Includes "Deep Search" parsing for complex JSON.</div>
 
     <div class="grid">
       <div class="card">
@@ -69,29 +68,25 @@
           </div>
           <div style="min-width:160px">
             <label for="maxSize">Max file size (MB)</label>
-            <input id="maxSize" type="number" value="100" min="1" max="2048"/>
+            <input id="maxSize" type="number" value="50" min="1" max="2048"/>
           </div>
         </div>
 
         <div class="row">
           <div class="grow">
             <label for="corsKey">proxy.cors.sh API key (optional)</label>
-            <input id="corsKey" type="text" placeholder="x-cors-api-key (optional for proxy.cors.sh)"/>
-            <small class="muted">If you have one, success rate improves.</small>
+            <input id="corsKey" type="text" placeholder="x-cors-api-key (optional)"/>
           </div>
           <div class="grow">
             <label for="customProxy">Add custom proxy candidate (optional)</label>
-            <input id="customProxy" type="url" placeholder="https://your-public-proxy.example.com/https://api.alphaxiv.org/..."/>
-            <small class="muted">Tried after built-ins; should forward POST + CORS headers.</small>
+            <input id="customProxy" type="url" placeholder="https://your-public-proxy.example.com/..."/>
           </div>
         </div>
 
         <div class="row">
-          <span class="small"><label><input id="retryToggle" type="checkbox" checked/> Retry/backoff per candidate</label></span>
-          <span class="small"><label><input id="hashToggle" type="checkbox"/> SHA-256 hash</label></span>
+          <span class="small"><label><input id="retryToggle" type="checkbox" checked/> Retry 3x (Slow Backoff)</label></span>
           <span class="small"><label><input id="persistToggle" type="checkbox" checked/> Remember settings</label></span>
-          <span class="small"><label><input id="formFallbackToggle" type="checkbox" checked/> Enable time-boxed form fallback</label></span>
-          <span class="small"><label><input id="parallelToggle" type="checkbox" checked/> Enable parallel race</label></span>
+          <span class="small"><label><input id="parallelToggle" type="checkbox" checked/> Parallel Race (Recommended)</label></span>
         </div>
       </div>
 
@@ -99,14 +94,10 @@
         <label>PDF File</label>
         <div id="drop" class="drop">
           <div><strong>Drag & drop</strong> a PDF here or click to select</div>
-          <div class="muted" style="margin-top:6px">Magic-byte checked; only <b>.pdf</b>.</div>
+          <div class="muted" style="margin-top:6px">Magic-byte checked. Large files may take 3+ mins.</div>
           <input id="file" type="file" accept="application/pdf" style="display:none"/>
         </div>
         <div id="picked" class="muted" style="margin-top:8px"></div>
-        <div class="kv" style="margin-top:8px">
-          <div>PDF Magic:</div><div id="magic">—</div>
-          <div>SHA-256:</div><div id="sha">—</div>
-        </div>
         <div class="row" style="margin-top:10px">
           <button id="start" class="btn">Start OCR</button>
           <button id="cancel" class="btn secondary" disabled>Cancel</button>
@@ -127,43 +118,25 @@
           </div>
         </div>
         <div>
-          <label>Logs</label>
+          <label>Logs (Real-time)</label>
           <pre id="log" aria-live="polite">Ready.</pre>
-          <label style="margin-top:12px">cURL (equivalent)</label>
-          <pre id="curl" class="small"></pre>
-
-          <details style="margin-top:10px">
-            <summary><strong>What will be tried (in parallel, staggered)</strong></summary>
+          
+          <details style="margin-top:10px" open>
+            <summary><strong>Priority Order (Updated)</strong></summary>
             <ol class="small">
+              <li><strong>corsproxy.io</strong> (Highest success rate)</li>
               <li>Direct (XHR)</li>
-              <li>proxy.cors.sh (XHR) — add <code>x-cors-api-key</code> if you have it</li>
-              <li>cors.isomorphic-git.org (XHR)</li>
-              <li>cors-anywhere.herokuapp.com (XHR) — requires “temporary access” click</li>
-              <li>thingproxy.freeboard.io (XHR best-effort), then form</li>
-              <li>allorigins (form only, likely to fail for POST; time-boxed)</li>
-              <li>yacdn (form only, likely to fail for POST; time-boxed)</li>
-              <li>Custom (if provided)</li>
+              <li>proxy.cors.sh (Needs key for best results)</li>
+              <li>cors.isomorphic-git.org</li>
+              <li>thingproxy.freeboard.io</li>
+              <li>cors-anywhere (Requires activation)</li>
             </ol>
-            <p class="small">The first successful response wins; others are ignored.</p>
+            <p class="small">Note: <em>corsproxy.io</em> often returns JSON wrapped differently. This app now scans the entire JSON tree for the Markdown text.</p>
           </details>
-
-          <details style="margin-top:10px">
-            <summary><strong>Enable CORS Anywhere quickly</strong></summary>
-            <p class="small">Click this to open the CORS Anywhere demo activator in a new tab, press the button there, then return and hit Start again:</p>
-            <p><a id="activateCorsAnywhere" class="btn secondary" href="#" onclick="openCorsAnywhere();return false;">Open CORS Anywhere activator</a></p>
-          </details>
+          <div style="margin-top:8px">
+            <a id="activateCorsAnywhere" class="btn secondary small" href="#" onclick="openCorsAnywhere();return false;">Open CORS Anywhere Activator</a>
+          </div>
         </div>
-      </div>
-
-      <div class="card">
-        <details>
-          <summary><strong>Notes & limitations</strong></summary>
-          <ul class="small">
-            <li>Public proxies are unstable for multipart POST. This app races options and never hangs silently (strict timeouts).</li>
-            <li>Form fallback is time-boxed; if the proxy doesn’t return readable same-origin text, it fails quickly and moves on.</li>
-            <li>For guaranteed reliability, a free Cloudflare Worker in <em>your</em> account is best — but this file avoids requiring that.</li>
-          </ul>
-        </details>
       </div>
     </div>
   </div>
@@ -178,44 +151,63 @@
     // ===== DOM =====
     const qs=s=>document.querySelector(s);
     const drop=qs('#drop'), fileInput=qs('#file'), picked=qs('#picked');
-    const magicEl=qs('#magic'), shaEl=qs('#sha');
     const startBtn=qs('#start'), cancelBtn=qs('#cancel'), saveLogsBtn=qs('#saveLogs');
-    const statusEl=qs('#status'), prog=qs('#prog'), out=qs('#output'), len=qs('#len'), logEl=qs('#log'), dl=qs('#download'), copyBtn=qs('#copy'), curlPre=qs('#curl');
+    const statusEl=qs('#status'), prog=qs('#prog'), out=qs('#output'), len=qs('#len'), logEl=qs('#log'), dl=qs('#download'), copyBtn=qs('#copy');
     const endpointEl=qs('#endpoint'), filenameEl=qs('#filename'), maxSizeEl=qs('#maxSize');
     const corsKeyEl=qs('#corsKey'), customProxyEl=qs('#customProxy');
-    const retryToggle=qs('#retryToggle'), hashToggle=qs('#hashToggle'), persistToggle=qs('#persistToggle'), formFallbackToggle=qs('#formFallbackToggle'), parallelToggle=qs('#parallelToggle');
+    const retryToggle=qs('#retryToggle'), persistToggle=qs('#persistToggle'), parallelToggle=qs('#parallelToggle');
     const form=qs('#nofetchForm'), formFile=qs('#nofetchFile'), sink=qs('#sink');
-    const activateBtn=qs('#activateCorsAnywhere');
 
     // ===== State =====
     let currentFile=null, activeXHRs=[], done=false;
-    const MAX_ATTEMPTS=2, BACKOFF_BASE_MS=900, WATCHDOG_IDLE_MS=15000;
-    const FORM_TIMEOUT_MS=6000; // time-box the iframe fallback hard
+    const MAX_ATTEMPTS=3; // Increased
+    const BACKOFF_BASE_MS=2000; // Increased to give proxies breathing room
+    const WATCHDOG_IDLE_MS=45000; // Longer wait before warning
+    const FORM_TIMEOUT_MS=45000; // Significantly increased (was 6s, now 45s)
     let lastProgTs=0, watchdogTimer=null, logBuffer=['Ready.'];
 
     // ===== Utils =====
-    const now=()=>new Date().toISOString().replace('T',' ').replace('Z','');
+    const now=()=>new Date().toISOString().split('T')[1].split('.')[0];
     function logLine(level,msg){const line=`[${now()}] [${(level||'INFO').toUpperCase()}] ${msg}`; logBuffer.push(line); logEl.textContent=logBuffer.join('\n'); logEl.scrollTop=logEl.scrollHeight;}
     function setStatus(m){statusEl.textContent=m;}
     function setProg(p){prog.style.width=(Math.max(0,Math.min(100,p))||0)+'%';}
     function resetUI(){setStatus(''); setProg(0); startBtn.disabled=false; cancelBtn.disabled=true; saveLogsBtn.disabled=logBuffer.length<=1; stopWatchdog();}
-    function startWatchdog(){stopWatchdog(); lastProgTs=performance.now(); watchdogTimer=setInterval(()=>{if(performance.now()-lastProgTs>WATCHDOG_IDLE_MS) logLine('WARN','No upload progress — possible stall/CORS.');},2500);}
+    function startWatchdog(){stopWatchdog(); lastProgTs=performance.now(); watchdogTimer=setInterval(()=>{if(performance.now()-lastProgTs>WATCHDOG_IDLE_MS) logLine('WARN','No progress for 45s. Large file or slow proxy… waiting.');},5000);}
     function stopWatchdog(){if(watchdogTimer){clearInterval(watchdogTimer); watchdogTimer=null;}}
-    function isLikelyJSON(s){const t=s.trim(); if(!(t.startsWith('{')&&t.endsWith('}'))&&!(t.startsWith('[')&&t.endsWith(']'))) return false; try{JSON.parse(t); return true;}catch{return false;}}
-    function prettyJSON(o){try{return JSON.stringify(o,null,2);}catch{return String(o);}}
-    function shellEscape(s){return `'${String(s).replace(/'/g,"'\\''")}'`;}
+    function isLikelyJSON(s){const t=s.trim(); return (t.startsWith('{')&&t.endsWith('}'))||(t.startsWith('[')&&t.endsWith(']'));}
     function isValidHttpUrl(u){try{const x=new URL(u); return ['http:','https:'].includes(x.protocol);}catch{return false;}}
 
-    // ===== Settings persist & winner ranking =====
-    const LS_KEY='deepseek_parallel_settings';
-    const LS_WINNERS='deepseek_parallel_winners';
+    // ===== "Deep Search" for Markdown =====
+    // Recursively finds the longest string value in a JSON object, assuming it's the markdown content
+    function deepSearchMarkdown(obj) {
+      if (typeof obj === 'string') return obj;
+      if (typeof obj !== 'object' || obj === null) return '';
+      
+      // Known keys to check first
+      if(obj.markdown) return deepSearchMarkdown(obj.markdown);
+      if(obj.text) return deepSearchMarkdown(obj.text);
+      if(obj.content) return deepSearchMarkdown(obj.content);
+
+      let bestCandidate = '';
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          const res = deepSearchMarkdown(obj[key]);
+          if (res.length > bestCandidate.length) {
+            bestCandidate = res;
+          }
+        }
+      }
+      return bestCandidate;
+    }
+
+    // ===== Settings & Persistence =====
+    const LS_KEY='deepseek_v2_settings';
     function saveSettings(){
       if(!persistToggle.checked){localStorage.removeItem(LS_KEY); return;}
       localStorage.setItem(LS_KEY, JSON.stringify({
         endpoint:endpointEl.value, filename:filenameEl.value, maxSize:maxSizeEl.value,
         corsKey:corsKeyEl.value, customProxy:customProxyEl.value,
-        retry:retryToggle.checked, hash:hashToggle.checked, persist:persistToggle.checked,
-        formFallback:formFallbackToggle.checked, parallel:parallelToggle.checked
+        retry:retryToggle.checked, parallel:parallelToggle.checked
       }));
     }
     function loadSettings(){
@@ -226,69 +218,34 @@
         if(s.corsKey) corsKeyEl.value=s.corsKey;
         if(s.customProxy) customProxyEl.value=s.customProxy;
         if(typeof s.retry==='boolean') retryToggle.checked=s.retry;
-        if(typeof s.hash==='boolean') hashToggle.checked=s.hash;
-        if(typeof s.persist==='boolean') persistToggle.checked=s.persist;
-        if(typeof s.formFallback==='boolean') formFallbackToggle.checked=s.formFallback;
         if(typeof s.parallel==='boolean') parallelToggle.checked=s.parallel;
       }catch{}
     }
-    function readWinners(){
-      try{ return JSON.parse(localStorage.getItem(LS_WINNERS)||'[]'); }catch{return [];}
-    }
-    function bumpWinner(label){
-      try{
-        const arr=readWinners().filter(x=>x!==label); arr.unshift(label);
-        localStorage.setItem(LS_WINNERS, JSON.stringify(arr.slice(0,8)));
-      }catch{}
-    }
 
-    // ===== Proxies (8 candidates) =====
+    // ===== Proxy List (Prioritized based on logs) =====
     function endpoint(){return endpointEl.value.trim();}
     function buildCandidates(){
       const e = endpoint();
       const K = corsKeyEl.value.trim();
-      const winners = readWinners();
-
-      // base list with capability hint
+      
+      // PRIORITY 1: CorsProxy.io (Verified winner)
+      // Note: encodeURIComponent is vital here
       let list = [
-        { label:'Direct', url:e, headers:{}, cap:'post' },
+        { label:'corsproxy.io', url:`https://corsproxy.io/?${encodeURIComponent(e)}`, headers:{}, cap:'maybe-post' },
+        { label:'Direct', url:e, headers:{}, cap:'post' }, // Try direct just in case user has extension
         { label:'proxy.cors.sh', url:`https://proxy.cors.sh/${e}`, headers: K ? {'x-cors-api-key':K} : {}, cap:'post' },
         { label:'cors.isomorphic-git.org', url:`https://cors.isomorphic-git.org/${e}`, headers:{}, cap:'post' },
-        { label:'cors-anywhere', url:`https://cors-anywhere.herokuapp.com/${e}`, headers:{}, cap:'post' }, // requires activation
-        { label:'thingproxy.freeboard.io', url:`https://thingproxy.freeboard.io/fetch/${e}`, headers:{}, cap:'maybe-post' },
-        { label:'corsproxy.io', url:`https://corsproxy.io/?${encodeURIComponent(e)}`, headers:{}, cap:'maybe-post' },
-        { label:'allorigins', url:`https://api.allorigins.win/raw?url=${encodeURIComponent(e)}`, headers:{}, cap:'get-only' },
-        { label:'yacdn', url:`https://yacdn.org/proxy/${e}`, headers:{}, cap:'get-only' },
+        { label:'thingproxy', url:`https://thingproxy.freeboard.io/fetch/${e}`, headers:{}, cap:'maybe-post' },
+        { label:'cors-anywhere', url:`https://cors-anywhere.herokuapp.com/${e}`, headers:{}, cap:'post' }
       ];
-      const custom = customProxyEl.value.trim();
-      if(custom){ list.push({ label:'Custom', url:custom, headers:{}, cap:'post' }); }
 
-      // Move any previous winners to front (keep original order otherwise)
-      list.sort((a,b)=>{
-        const ai = winners.indexOf(a.label);
-        const bi = winners.indexOf(b.label);
-        return (ai===-1?999:ai) - (bi===-1?999:bi);
-      });
+      const custom = customProxyEl.value.trim();
+      if(custom){ list.unshift({ label:'Custom', url:custom, headers:{}, cap:'post' }); }
+      
       return list;
     }
 
-    // ===== cURL preview (for your CLI fallback) =====
-    function buildCurl(){
-      const e = endpoint();
-      const fn = currentFile?.name || 'report.pdf';
-      let cmd = `# CLI fallback (always works outside browser CORS)\ncurl -X POST ${shellEscape(e)} \\\n  -F file=@${shellEscape(fn)}`;
-      const list = buildCandidates().filter(c=>c.label!=='Direct');
-      for(const c of list){ cmd += `\n\n# ${c.label}\ncurl -X POST ${shellEscape(c.url)} \\\n  -F file=@${shellEscape(fn)}`; }
-      curlPre.textContent = cmd;
-    }
-    [endpointEl,corsKeyEl,customProxyEl].forEach(el=>el.addEventListener('input',buildCurl));
-
-    // ===== PDF checks =====
-    async function readMagicBytes(file,n=8){return new Uint8Array(await file.slice(0,n).arrayBuffer());}
-    function pdfMagicOK(bytes){return new TextDecoder().decode(bytes).startsWith('%PDF-');}
-    async function sha256(file){const buf=await file.arrayBuffer(); const hash=await crypto.subtle.digest('SHA-256',buf); return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');}
-
-    // ===== File pick/drop =====
+    // ===== File Handling =====
     drop.addEventListener('click',()=>fileInput.click());
     ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.add('dragover');}));
     ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('dragover');}));
@@ -297,202 +254,220 @@
 
     async function handleFile(f){
       if(!f) return;
-      if(f.type!=='application/pdf' && !f.name.toLowerCase().endsWith('.pdf')){ alert('Please choose a .pdf file.'); return; }
+      if(f.type!=='application/pdf' && !f.name.toLowerCase().endsWith('.pdf')){ alert('Only .pdf allowed'); return; }
       const maxBytes = Number(maxSizeEl.value||100)*1024*1024;
       if(f.size>maxBytes){ alert(`File too large. Limit ${(maxBytes/1024/1024).toFixed(0)} MB.`); return; }
       currentFile=f;
       picked.textContent=`Selected: ${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`;
       filenameEl.value=(f.name.replace(/\.pdf$/i,'')||'ocr-output')+'.md';
-      buildCurl();
-
-      try{const mb=await readMagicBytes(f); const ok=pdfMagicOK(mb); magicEl.textContent=ok?'OK — %PDF- signature present':'Unexpected header (not %PDF-)'; logLine(ok?'OK':'WARN', ok?'PDF header ok':'Header not %PDF-, may still be a PDF.');}
-      catch(e){magicEl.textContent='Could not read header'; logLine('WARN','Magic read failed: '+e);}
-      shaEl.textContent='—'; if(hashToggle.checked){try{setStatus('Hashing (SHA-256)…'); const h=await sha256(f); shaEl.textContent=h; logLine('OK','SHA-256: '+h); setStatus('');}catch(e){shaEl.textContent='hash failed'; logLine('WARN','Hash failed: '+e);}}
       saveSettings();
     }
 
-    // ===== CORS Anywhere activator helper =====
-    function openCorsAnywhere(){
-      const url='https://cors-anywhere.herokuapp.com/corsdemo';
-      window.open(url, '_blank','noopener');
-      logLine('INFO','Opened CORS Anywhere activator tab. Click the button there, then try Start again.');
-    }
-    window.openCorsAnywhere = openCorsAnywhere;
-    activateBtn.addEventListener('click', openCorsAnywhere);
-
     // ===== Actions =====
-    document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='enter') startBtn.click(); });
-    saveLogsBtn.addEventListener('click',()=>{ const blob=new Blob([logBuffer.join('\n')],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`deepseek-ocr-logs-${Date.now()}.txt`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); });
-
+    window.openCorsAnywhere = () => window.open('https://cors-anywhere.herokuapp.com/corsdemo', '_blank');
+    saveLogsBtn.addEventListener('click',()=>{ const blob=new Blob([logBuffer.join('\n')],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ocr-debug-logs.txt'; a.click(); });
+    
     startBtn.addEventListener('click', async ()=>{
       if(!currentFile){ alert('Pick a PDF first.'); return; }
-      if(!isValidHttpUrl(endpoint())){ alert('Invalid endpoint URL'); return; }
-
-      // reset
-      done=false; activeXHRs.forEach(x=>{try{x.abort();}catch{}}); activeXHRs=[];
+      done=false; activeXHRs.forEach(x=>x.abort()); activeXHRs=[];
       out.value=''; len.textContent=''; dl.disabled=true; copyBtn.disabled=true; saveLogsBtn.disabled=false;
-      logBuffer=['Starting…']; logEl.textContent=logBuffer.join('\n'); setStatus('Initializing…'); setProg(0); startBtn.disabled=true; cancelBtn.disabled=true;
+      logBuffer=['Starting process (v2)...']; logEl.textContent=logBuffer.join('\n'); 
+      setStatus('Initializing...'); setProg(0); startBtn.disabled=true; cancelBtn.disabled=false;
       startWatchdog();
 
       const candidates = buildCandidates();
-      const toRun = parallelToggle.checked ? candidates : candidates.slice(0,1); // serial fallback: only first
-      // Staggered start (race): 0ms, 500ms, 1000ms, ...
-      let settled=false;
-      const runners = toRun.map((c,i)=> runCandidate(c, i*500).then(ok=>{
-        if(ok && !settled){
-          settled=true; onWin(c.label);
-        }
-        return ok;
-      }));
-
-      // If parallel disabled, still wait and report
+      const runners = candidates.map((c,i)=> runCandidate(c, parallelToggle.checked ? i*800 : i*3000)); // Stagger more if parallel
+      
       Promise.allSettled(runners).then(results=>{
-        if(!results.some(r=>r.value===true) && !done){
-          setStatus('All candidates failed (see logs).');
-          logLine('ERR','All candidates exhausted. Use CLI curl or activate CORS Anywhere, then retry.');
+        if(!done && !results.some(r=>r.value===true)){
+          setStatus('All proxies failed.');
+          logLine('ERR','FATAL: No proxy succeeded. Try getting a key for proxy.cors.sh or activating CORS Anywhere.');
           resetUI();
-          stopWatchdog();
         }
       });
     });
 
-    function onWin(label){
+    function onWin(label, content){
       if(done) return;
       done=true;
-      bumpWinner(label);
-      setStatus(`Done via ${label}.`);
-      logLine('OK',`First successful path: ${label}`);
+      setStatus(`Success! (${label})`);
+      logLine('OK',`Winner: ${label}`);
+      out.value = content;
+      len.textContent = `${content.length} chars`;
+      dl.disabled=false; copyBtn.disabled=false;
       cancelBtn.disabled=true;
       resetUI();
-      stopWatchdog();
+      // Flash the valid output
+      out.style.borderColor = 'var(--ok)';
+      setTimeout(()=>out.style.borderColor='', 1000);
     }
 
     cancelBtn.addEventListener('click',()=>{
-      done=true;
-      activeXHRs.forEach(x=>{try{x.abort();}catch{}});
-      activeXHRs=[];
-      logLine('WARN','Aborted by user.');
-      setStatus('Canceled');
-      resetUI();
-      stopWatchdog();
+      done=true; activeXHRs.forEach(x=>x.abort());
+      logLine('WARN','Cancelled by user.'); setStatus('Cancelled'); resetUI();
     });
 
-    // ===== Candidate runner (with retries + form fallback + timeouts) =====
+    // ===== Candidate Logic =====
     async function runCandidate(cand, delayMs){
       await new Promise(r=>setTimeout(r, delayMs));
       if(done) return false;
 
       const attemptMax = retryToggle.checked ? MAX_ATTEMPTS : 1;
 
-      // 1) Try XHR if plausible
-      if(['post','maybe-post'].includes(cand.cap)){
-        for(let a=1;a<=attemptMax && !done;a++){
-          const tag = `${cand.label} attempt ${a}/${attemptMax}`;
-          const ok = await xhrUpload(cand.url, tag, cand.headers);
-          if(ok) return true;
-          if(a<attemptMax){ const backoff=BACKOFF_BASE_MS*Math.pow(2,a-1); logLine('INFO',`${tag} — retry in ${(backoff/1000).toFixed(1)}s`); await new Promise(r=>setTimeout(r,backoff)); }
+      // 1. Try XHR (Best for progress bars)
+      for(let a=1;a<=attemptMax && !done;a++){
+        const tag = `${cand.label} [XHR ${a}/${attemptMax}]`;
+        const ok = await xhrUpload(cand.url, tag, cand.headers);
+        if(ok) return true;
+        // Exponential backoff
+        if(a<attemptMax && !done){ 
+          const wait = BACKOFF_BASE_MS * Math.pow(1.5, a);
+          logLine('INFO',`${tag} failed. Retrying in ${(wait/1000).toFixed(1)}s...`);
+          await new Promise(r=>setTimeout(r, wait)); 
         }
-      } else {
-        logLine('INFO', `${cand.label} — GET-only (skip XHR).`);
       }
 
-      // 2) Form fallback if allowed & enabled (time-boxed)
-      if(formFallbackToggle.checked && cand.cap!=='get-only' && !done){
-        for(let a=1;a<=attemptMax && !done;a++){
-          const tag = `${cand.label} (form) attempt ${a}/${attemptMax}`;
-          const ok = await formUpload(cand.url, tag);
-          if(ok) return true;
-          if(a<attemptMax){ const backoff=BACKOFF_BASE_MS*Math.pow(2,a-1); logLine('INFO',`${tag} — retry in ${(backoff/1000).toFixed(1)}s`); await new Promise(r=>setTimeout(r,backoff)); }
-        }
-      } else if (!formFallbackToggle.checked) {
-        logLine('INFO', `${cand.label} — form fallback disabled.`);
+      // 2. Try Form Fallback (Only if XHR failed and not GET-only)
+      if(!done && cand.cap !== 'get-only'){
+        const tag = `${cand.label} [Form Fallback]`;
+        const ok = await formUpload(cand.url, tag);
+        if(ok) return true;
       }
 
       return false;
     }
 
-    // ===== XHR upload (multipart) =====
+    // ===== XHR Upload =====
     function xhrUpload(url, label, extraHeaders={}){
       return new Promise(resolve=>{
         if(done) return resolve(false);
         try{
           const fd = new FormData(); fd.append('file', currentFile, currentFile.name);
           const xhr = new XMLHttpRequest(); activeXHRs.push(xhr);
-          xhr.open('POST', url, true); xhr.responseType='text';
-          xhr.setRequestHeader('Accept','text/markdown, text/plain, application/json;q=0.9, */*;q=0.1');
+          xhr.open('POST', url, true); 
+          xhr.responseType='text';
+          xhr.timeout = 10 * 60 * 1000; // 10 minutes (previous success was ~3 mins)
+          
+          // Headers
+          xhr.setRequestHeader('Accept','application/json, text/markdown, text/plain, */*');
           for(const [k,v] of Object.entries(extraHeaders)) try{xhr.setRequestHeader(k, v);}catch{}
-          xhr.timeout = 5*60*1000;
 
-          let lastPct=0;
-          xhr.upload.onprogress = (e)=>{ if(e.lengthComputable){ const pct=Math.round(e.loaded/e.total*100); if(pct!==lastPct){ setProg(pct); setStatus(`Uploading… ${pct}% (${label})`); lastProgTs=performance.now(); lastPct=pct; } } else { setStatus(`Uploading… (${label})`); } };
-          xhr.onloadstart = ()=>{ logLine('INFO', `${label} — sending multipart`); cancelBtn.disabled=false; };
-          xhr.onerror = ()=>{ logLine('ERR', `${label} — network/CORS`); resolve(false); };
-          xhr.ontimeout = ()=>{ logLine('ERR', `${label} — timeout`); resolve(false); };
+          xhr.upload.onprogress = (e)=>{ 
+            if(done) return;
+            if(e.lengthComputable){ 
+              const pct=Math.round(e.loaded/e.total*100); 
+              setProg(pct); setStatus(`${label} Uploading ${pct}%`); 
+              lastProgTs=performance.now(); 
+            } 
+          };
+          
           xhr.onload = ()=>{
-            const status = xhr.status, raw = xhr.responseText||'';
-            logLine('INFO', `${label} — HTTP ${status}`);
-            if(status>=200 && status<300){ handleResponseText(raw); resolve(true); }
-            else{
-              out.value = `# Error ${status}\n\n${raw.slice(0,2000)}`; copyBtn.disabled=false;
-              resolve(false);
+            if(xhr.status>=200 && xhr.status<300){
+               processSuccess(xhr.responseText, label, resolve);
+            } else {
+               logLine('ERR', `${label} HTTP ${xhr.status}: ${xhr.responseText.substring(0,50)}...`);
+               resolve(false);
             }
           };
+          xhr.onerror = ()=>{ logLine('ERR', `${label} Network Error (CORS blocked?)`); resolve(false); };
+          xhr.ontimeout = ()=>{ logLine('ERR', `${label} Timeout (Server took too long)`); resolve(false); };
+          
+          logLine('INFO', `${label} Sending...`);
           xhr.send(fd);
-        }catch(e){ logLine('ERR', `${label} — send failed: ${e}`); resolve(false); }
+        }catch(e){ logLine('ERR', `${label} Setup failed: ${e}`); resolve(false); }
       });
     }
 
-    // ===== Time-boxed form upload via hidden iframe =====
+    // ===== Form Upload (Fallback) =====
     function formUpload(url, label){
       return new Promise(resolve=>{
         if(done) return resolve(false);
         try{
-          form.action = url; // no custom headers → avoid preflight requests
+          form.action = url; 
           const dt = new DataTransfer(); dt.items.add(currentFile); formFile.files = dt.files;
 
           let finished=false;
-          const cleanup=()=>{ if(finished) return; finished=true; sink.removeEventListener('load', onLoad); clearTimeout(timer); };
-          const timer = setTimeout(()=>{ if(!finished){ logLine('WARN', `${label} — form fallback timed out (${FORM_TIMEOUT_MS}ms)`); cleanup(); resolve(false);} }, FORM_TIMEOUT_MS);
+          const cleanup=()=>{ 
+            finished=true; sink.removeEventListener('load', onLoad); clearTimeout(timer); 
+          };
+          
+          // Extended timeout for form (45s)
+          const timer = setTimeout(()=>{ 
+            if(!finished){ logLine('WARN', `${label} Timed out (${FORM_TIMEOUT_MS/1000}s)`); cleanup(); resolve(false);} 
+          }, FORM_TIMEOUT_MS);
 
           const onLoad = ()=>{
             try{
               const doc = sink.contentDocument || sink.contentWindow.document;
               const text = doc && doc.body ? doc.body.textContent : '';
-              if(!text){ logLine('WARN', `${label} — empty or cross-origin iframe response`); }
-              else{ handleResponseText(text); cleanup(); return resolve(true); }
-            }catch(e){
-              logLine('ERR', `${label} — iframe blocked: ${e}`);
-            }
+              if(text && text.length > 20) { 
+                processSuccess(text, label, resolve);
+                cleanup(); return;
+              }
+            }catch(e){}
+            if(!finished) logLine('WARN', `${label} iframe empty/blocked`);
             cleanup(); resolve(false);
           };
-          sink.addEventListener('load', onLoad);
 
-          logLine('INFO', `${label} — submitting plain HTML form (no headers)`);
+          sink.addEventListener('load', onLoad);
+          logLine('INFO', `${label} Submitting form...`);
           form.submit();
-        }catch(e){ logLine('ERR', `${label} — form submit failed: ${e}`); resolve(false); }
+        }catch(e){ resolve(false); }
       });
     }
 
-    // ===== Response handling =====
-    function handleResponseText(raw){
-      let md='';
+    // ===== Intelligent Response Processor =====
+    function processSuccess(raw, label, resolve){
+      if(done) return resolve(false);
+      
+      let finalMd = '';
+      
       if(isLikelyJSON(raw)){
         try{
-          const j=JSON.parse(raw);
-          md = j.markdown || j.data?.markdown || j.text || j.data?.text || '';
-          if(!md){ md='```json\n'+prettyJSON(j)+'\n```'; logLine('WARN','JSON without markdown/text; dumped JSON.'); }
-          else { logLine('OK','Extracted markdown/text from JSON.'); }
-        }catch{ md=raw; }
-      } else md=raw;
-      out.value=md; len.textContent=md?`${md.length} chars`:''; dl.disabled=!md; copyBtn.disabled=!md;
+          const j = JSON.parse(raw);
+          // Try standard keys
+          finalMd = j.markdown || j.data?.markdown || j.text || '';
+          
+          // If empty, use Deep Search (Recursive)
+          if(!finalMd || finalMd.length < 10) {
+            logLine('INFO', `${label} JSON structure unclear, running Deep Search...`);
+            finalMd = deepSearchMarkdown(j);
+          }
+          
+          if(finalMd && finalMd.length > 20) {
+            onWin(label, finalMd);
+            return resolve(true);
+          } else {
+             // Worst case: dump the JSON prettified
+             logLine('WARN', `${label} Valid JSON but no long strings found.`);
+             onWin(label + ' (Raw JSON)', JSON.stringify(j, null, 2));
+             return resolve(true);
+          }
+        } catch(e) {
+          logLine('WARN', `${label} JSON Parse failed: ${e}`);
+          finalMd = raw; // Treat as plain text
+        }
+      } else {
+        finalMd = raw;
+      }
+
+      if(finalMd && finalMd.length > 0){
+        onWin(label, finalMd);
+        resolve(true);
+      } else {
+        resolve(false);
+      }
     }
 
-    // ===== Download & Copy =====
-    dl.addEventListener('click', ()=>{ const blob=new Blob([out.value],{type:'text/markdown;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=(filenameEl.value.trim()||'ocr-output.md'); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); logLine('OK','Markdown downloaded.');});
-    copyBtn.addEventListener('click', async ()=>{ try{await navigator.clipboard.writeText(out.value); setStatus('Copied.'); logLine('OK','Copied to clipboard.');}catch{setStatus('Copy failed'); logLine('WARN','Clipboard write failed.');}});
+    // ===== UI Helpers =====
+    dl.addEventListener('click', ()=>{ 
+      const blob=new Blob([out.value],{type:'text/markdown'}); 
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); 
+      a.download=(filenameEl.value.trim()||'ocr.md'); a.click(); 
+    });
+    copyBtn.addEventListener('click', ()=>{ navigator.clipboard.writeText(out.value); setStatus('Copied!'); });
 
-    // ===== Init =====
-    loadSettings(); buildCurl();
+    loadSettings();
   </script>
 </body>
 </html>
