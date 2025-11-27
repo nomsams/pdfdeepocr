@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>DeepSeek OCR → Markdown (v2 Robust)</title>
+  <title>DeepSeek OCR → Markdown (v3 Reliability)</title>
   <style>
     :root{
       --bg:#0f1115; --panel:#151923; --muted:#232836; --text:#e6e6e6; --accent:#62d0ff; --ok:#30d158; --warn:#ffcc00; --err:#ff453a;
@@ -12,462 +12,479 @@
     html,body{height:100%}
     body{margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial}
     .wrap{max-width:1100px; margin:24px auto; padding:0 16px;}
-    h1{font-size:20px; margin:0 0 8px}
-    .sub{opacity:.75; margin-bottom:16px}
     .grid{display:grid; gap:12px}
-    .card{background:var(--panel); border:1px solid var(--muted); border-radius:14px; padding:14px; box-shadow:var(--shadow);}
+    .card{background:var(--panel); border:1px solid var(--muted); border-radius:14px; padding:16px; box-shadow:var(--shadow);}
     .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-    .row .grow{flex:1}
-    label{display:block; font-weight:600; margin-bottom:6px}
-    input[type="text"],input[type="url"],input[type="password"],input[type="number"],select{
-      width:100%; background:#0d1017; border:1px solid var(--muted); color:var(--text); padding:10px 12px; border-radius:10px; outline:none;
+    .grow{flex:1}
+    label{display:block; font-weight:600; margin-bottom:6px; color:#aab2c0;}
+    input[type="text"],input[type="url"],input[type="number"]{
+      width:100%; background:#0d1017; border:1px solid var(--muted); color:var(--text); padding:10px 12px; border-radius:10px; outline:none; font-family:inherit;
     }
-    input:focus,select:focus{border-color:var(--accent)}
-    .drop{border:2px dashed var(--muted); border-radius:14px; padding:22px; text-align:center; transition:.2s border-color,.2s background; cursor:pointer; user-select:none;}
-    .drop.dragover{border-color:var(--accent); background:#0c111b}
-    .muted{opacity:.7}
-    .btn{background:var(--accent); color:#00121a; border:0; border-radius:12px; padding:10px 14px; font-weight:700; cursor:pointer; transition:transform .02s; box-shadow:var(--shadow);}
-    .btn:active{transform:translateY(1px)}
+    input:focus{border-color:var(--accent)}
+    .drop{border:2px dashed var(--muted); border-radius:14px; padding:24px; text-align:center; transition:.2s; cursor:pointer;}
+    .drop:hover,.drop.dragover{border-color:var(--accent); background:#1a202e}
+    .btn{background:var(--accent); color:#00121a; border:0; border-radius:8px; padding:10px 16px; font-weight:700; cursor:pointer; min-width:100px;}
+    .btn:disabled{opacity:0.5; cursor:not-allowed; filter:grayscale(1);}
     .btn.secondary{background:#2c3547; color:var(--text)}
-    .btn.warn{background:var(--warn); color:#1a1400}
-    .btn.err{background:var(--err); color:#1a0000}
     .btn.ok{background:var(--ok); color:#001a08}
-    .bar{height:10px; background:#0c1018; border:1px solid var(--muted); border-radius:999px; overflow:hidden}
-    .bar>span{display:block; height:100%; width:0%; background:linear-gradient(90deg, var(--accent), #79ffa8); transition:width .15s}
-    pre,textarea{background:#0b0f15; color:#eaeffb; border:1px solid var(--muted); border-radius:10px}
-    pre{padding:12px; overflow:auto; max-height:420px; white-space:pre-wrap}
-    textarea{width:100%; min-height:260px; padding:12px; resize:vertical}
+    .bar-bg{height:8px; background:#0c1018; border-radius:99px; overflow:hidden; position:relative;}
+    .bar-fg{height:100%; width:0%; background:var(--accent); transition:width 0.3s;}
+    .pulse{animation:pulse 2s infinite;}
+    @keyframes pulse{0%{opacity:1} 50%{opacity:0.6} 100%{opacity:1}}
+    
+    textarea,pre{width:100%; background:#0b0f15; color:#eaeffb; border:1px solid var(--muted); border-radius:10px; padding:12px; font-family:ui-monospace,monospace;}
+    textarea{min-height:300px; resize:vertical; line-height:1.6;}
+    pre{max-height:400px; overflow:auto; white-space:pre-wrap; font-size:12px;}
+    
+    .status-row{display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:13px;}
+    .timer{font-variant-numeric:tabular-nums; color:var(--accent);}
     .cols{display:grid; grid-template-columns:1fr; gap:12px}
     @media(min-width:980px){ .cols{grid-template-columns:1fr 1fr} }
-    .kv{display:grid; grid-template-columns:180px 1fr; gap:6px 10px; align-items:center}
-    .tag{display:inline-block; padding:2px 8px; border-radius:999px; font:600 11px ui-monospace; margin-right:6px}
-    .info{background:#0f1a2a; border:1px solid #22304b}
-    .warn{background:#2a220f; border:1px solid #4b4022}
-    .err{background:#2a0f0f; border:1px solid #4b2222}
-    .ok{background:#0f2a1a; border:1px solid #224b30}
-    .small{font:12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono"}
-    details > summary{cursor:pointer}
-    .pill{display:inline-block; padding:4px 8px; border-radius:999px; background:#101522; border:1px solid var(--muted); font-size:12px; opacity:.85}
+    
+    .badge{display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:bold; text-transform:uppercase;}
+    .b-warn{background:rgba(255, 204, 0, 0.15); color:var(--warn); border:1px solid rgba(255,204,0,0.3);}
+    .b-ok{background:rgba(48, 209, 88, 0.15); color:var(--ok); border:1px solid rgba(48,209,88,0.3);}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>DeepSeek OCR → Markdown <span class="pill">v2 Robust</span></h1>
-    <div class="sub">Updated to prioritize <b>corsproxy.io</b> based on previous success. Includes "Deep Search" parsing for complex JSON.</div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h1 style="margin:0">DeepSeek OCR → Markdown <span style="font-size:0.6em; opacity:0.6; font-weight:400;">v3 Reliability</span></h1>
+    </div>
 
     <div class="grid">
+      <!-- Settings -->
       <div class="card">
         <div class="row">
           <div class="grow">
-            <label for="endpoint">DeepSeek Endpoint</label>
+            <label>API Endpoint</label>
             <input id="endpoint" type="url" value="https://api.alphaxiv.org/models/v1/deepseek/deepseek-ocr/inference"/>
           </div>
           <div class="grow">
-            <label for="filename">Output filename (.md)</label>
-            <input id="filename" type="text" value="ocr-output.md"/>
-          </div>
-          <div style="min-width:160px">
-            <label for="maxSize">Max file size (MB)</label>
-            <input id="maxSize" type="number" value="50" min="1" max="2048"/>
+            <label>Output Filename</label>
+            <input id="filename" type="text" value="ocr-result.md"/>
           </div>
         </div>
-
-        <div class="row">
+        <div class="row" style="margin-top:12px">
           <div class="grow">
-            <label for="corsKey">proxy.cors.sh API key (optional)</label>
-            <input id="corsKey" type="text" placeholder="x-cors-api-key (optional)"/>
+            <label>CorsProxy.io URL (Recommended)</label>
+            <input id="proxyUrl" type="text" value="https://corsproxy.io/?" readonly style="opacity:0.7; cursor:not-allowed"/>
           </div>
           <div class="grow">
-            <label for="customProxy">Add custom proxy candidate (optional)</label>
-            <input id="customProxy" type="url" placeholder="https://your-public-proxy.example.com/..."/>
+            <label>Custom Proxy (Optional)</label>
+            <input id="customProxy" type="url" placeholder="https://your-proxy.com/..."/>
           </div>
-        </div>
-
-        <div class="row">
-          <span class="small"><label><input id="retryToggle" type="checkbox" checked/> Retry 3x (Slow Backoff)</label></span>
-          <span class="small"><label><input id="persistToggle" type="checkbox" checked/> Remember settings</label></span>
-          <span class="small"><label><input id="parallelToggle" type="checkbox" checked/> Parallel Race (Recommended)</label></span>
         </div>
       </div>
 
+      <!-- Upload & Controls -->
       <div class="card">
-        <label>PDF File</label>
         <div id="drop" class="drop">
-          <div><strong>Drag & drop</strong> a PDF here or click to select</div>
-          <div class="muted" style="margin-top:6px">Magic-byte checked. Large files may take 3+ mins.</div>
+          <div style="pointer-events:none">
+            <strong style="font-size:16px">Click to Select PDF</strong> or Drag & Drop<br/>
+            <span class="muted" style="font-size:12px">Note: Processing usually takes 2-4 minutes per file.</span>
+          </div>
           <input id="file" type="file" accept="application/pdf" style="display:none"/>
         </div>
-        <div id="picked" class="muted" style="margin-top:8px"></div>
-        <div class="row" style="margin-top:10px">
+        
+        <div id="fileInfo" class="row" style="margin-top:10px; display:none">
+          <span class="badge b-ok">PDF Selected</span>
+          <span id="fileName" class="muted"></span>
+        </div>
+
+        <div class="row" style="margin-top:16px">
           <button id="start" class="btn">Start OCR</button>
           <button id="cancel" class="btn secondary" disabled>Cancel</button>
-          <button id="saveLogs" class="btn secondary" disabled>Save Logs</button>
-          <span id="status" class="muted"></span>
+          <button id="downloadLog" class="btn secondary">Save Logs</button>
         </div>
-        <div class="bar" style="margin-top:10px"><span id="prog"></span></div>
+
+        <!-- Progress -->
+        <div style="margin-top:16px">
+          <div class="status-row">
+            <strong id="statusText" class="pulse">Ready.</strong>
+            <span id="timer" class="timer">00:00</span>
+          </div>
+          <div class="bar-bg" style="margin-top:6px"><div id="prog" class="bar-fg"></div></div>
+        </div>
       </div>
 
+      <!-- Output -->
       <div class="card cols">
         <div>
-          <label>Markdown Result</label>
-          <textarea id="output" placeholder="Markdown will appear here…" readonly></textarea>
-          <div class="row" style="margin-top:8px">
-            <button id="download" class="btn ok" disabled>Download .md</button>
-            <button id="copy" class="btn secondary" disabled>Copy</button>
-            <span id="len" class="muted"></span>
+          <label>Markdown Output</label>
+          <textarea id="output" placeholder="Results will appear here..." readonly></textarea>
+          <div class="row" style="margin-top:10px">
+            <button id="dlBtn" class="btn ok" disabled>Download .md</button>
+            <button id="copyBtn" class="btn secondary" disabled>Copy Text</button>
           </div>
         </div>
         <div>
-          <label>Logs (Real-time)</label>
-          <pre id="log" aria-live="polite">Ready.</pre>
-          
-          <details style="margin-top:10px" open>
-            <summary><strong>Priority Order (Updated)</strong></summary>
-            <ol class="small">
-              <li><strong>corsproxy.io</strong> (Highest success rate)</li>
-              <li>Direct (XHR)</li>
-              <li>proxy.cors.sh (Needs key for best results)</li>
-              <li>cors.isomorphic-git.org</li>
-              <li>thingproxy.freeboard.io</li>
-              <li>cors-anywhere (Requires activation)</li>
-            </ol>
-            <p class="small">Note: <em>corsproxy.io</em> often returns JSON wrapped differently. This app now scans the entire JSON tree for the Markdown text.</p>
-          </details>
-          <div style="margin-top:8px">
-            <a id="activateCorsAnywhere" class="btn secondary small" href="#" onclick="openCorsAnywhere();return false;">Open CORS Anywhere Activator</a>
+          <label>Live Logs</label>
+          <pre id="log">Waiting for input...</pre>
+          <div style="margin-top:8px; font-size:12px; color:#888;">
+            <strong>Strategy:</strong> Parallel Race (Priority: corsproxy.io) → Deep Search → 5 Retries.
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Hidden iframe + form for time-boxed form fallback -->
+  <!-- Hidden form for fallbacks -->
   <iframe name="sink" id="sink" style="display:none"></iframe>
-  <form id="nofetchForm" target="sink" method="POST" enctype="multipart/form-data" style="display:none">
-    <input type="file" name="file" id="nofetchFile"/>
+  <form id="hiddenForm" target="sink" method="POST" enctype="multipart/form-data" style="display:none">
+    <input type="file" name="file" id="hiddenInput"/>
   </form>
 
   <script>
-    // ===== DOM =====
-    const qs=s=>document.querySelector(s);
-    const drop=qs('#drop'), fileInput=qs('#file'), picked=qs('#picked');
-    const startBtn=qs('#start'), cancelBtn=qs('#cancel'), saveLogsBtn=qs('#saveLogs');
-    const statusEl=qs('#status'), prog=qs('#prog'), out=qs('#output'), len=qs('#len'), logEl=qs('#log'), dl=qs('#download'), copyBtn=qs('#copy');
-    const endpointEl=qs('#endpoint'), filenameEl=qs('#filename'), maxSizeEl=qs('#maxSize');
-    const corsKeyEl=qs('#corsKey'), customProxyEl=qs('#customProxy');
-    const retryToggle=qs('#retryToggle'), persistToggle=qs('#persistToggle'), parallelToggle=qs('#parallelToggle');
-    const form=qs('#nofetchForm'), formFile=qs('#nofetchFile'), sink=qs('#sink');
+    // --- Configuration ---
+    const CONFIG = {
+      maxAttempts: 5,        // Aggressive retries
+      backoffBase: 5000,     // 5s wait between tries (prevents spamming)
+      xhrTimeout: 600000,    // 10 Minutes (crucial for slow deepseek)
+      formTimeout: 300000,   // 5 Minutes (crucial for fallbacks)
+      parallelDelay: 2000    // Stagger starts
+    };
 
-    // ===== State =====
-    let currentFile=null, activeXHRs=[], done=false;
-    const MAX_ATTEMPTS=3; // Increased
-    const BACKOFF_BASE_MS=2000; // Increased to give proxies breathing room
-    const WATCHDOG_IDLE_MS=45000; // Longer wait before warning
-    const FORM_TIMEOUT_MS=45000; // Significantly increased (was 6s, now 45s)
-    let lastProgTs=0, watchdogTimer=null, logBuffer=['Ready.'];
+    // --- DOM ---
+    const qs = s => document.querySelector(s);
+    const UI = {
+      drop: qs('#drop'), file: qs('#file'), info: qs('#fileInfo'), name: qs('#fileName'),
+      start: qs('#start'), cancel: qs('#cancel'), logBtn: qs('#downloadLog'),
+      status: qs('#statusText'), timer: qs('#timer'), prog: qs('#prog'),
+      out: qs('#output'), log: qs('#log'),
+      dl: qs('#dlBtn'), copy: qs('#copyBtn'),
+      endpoint: qs('#endpoint'), custom: qs('#customProxy')
+    };
 
-    // ===== Utils =====
-    const now=()=>new Date().toISOString().split('T')[1].split('.')[0];
-    function logLine(level,msg){const line=`[${now()}] [${(level||'INFO').toUpperCase()}] ${msg}`; logBuffer.push(line); logEl.textContent=logBuffer.join('\n'); logEl.scrollTop=logEl.scrollHeight;}
-    function setStatus(m){statusEl.textContent=m;}
-    function setProg(p){prog.style.width=(Math.max(0,Math.min(100,p))||0)+'%';}
-    function resetUI(){setStatus(''); setProg(0); startBtn.disabled=false; cancelBtn.disabled=true; saveLogsBtn.disabled=logBuffer.length<=1; stopWatchdog();}
-    function startWatchdog(){stopWatchdog(); lastProgTs=performance.now(); watchdogTimer=setInterval(()=>{if(performance.now()-lastProgTs>WATCHDOG_IDLE_MS) logLine('WARN','No progress for 45s. Large file or slow proxy… waiting.');},5000);}
-    function stopWatchdog(){if(watchdogTimer){clearInterval(watchdogTimer); watchdogTimer=null;}}
-    function isLikelyJSON(s){const t=s.trim(); return (t.startsWith('{')&&t.endsWith('}'))||(t.startsWith('[')&&t.endsWith(']'));}
-    function isValidHttpUrl(u){try{const x=new URL(u); return ['http:','https:'].includes(x.protocol);}catch{return false;}}
+    // --- State ---
+    let state = {
+      file: null,
+      running: false,
+      logs: [],
+      xhrs: [],
+      startTime: 0,
+      timerId: null
+    };
 
-    // ===== "Deep Search" for Markdown =====
-    // Recursively finds the longest string value in a JSON object, assuming it's the markdown content
-    function deepSearchMarkdown(obj) {
-      if (typeof obj === 'string') return obj;
-      if (typeof obj !== 'object' || obj === null) return '';
+    // --- Logger ---
+    const log = (msg, level='INFO') => {
+      const ts = new Date().toLocaleTimeString('en-GB');
+      const line = `[${ts}] [${level}] ${msg}`;
+      state.logs.push(line);
+      UI.log.textContent = state.logs.join('\n');
+      UI.log.scrollTop = UI.log.scrollHeight;
+    };
+
+    // --- File Handling ---
+    UI.drop.addEventListener('click', () => UI.file.click());
+    UI.drop.addEventListener('dragover', e => { e.preventDefault(); UI.drop.classList.add('dragover'); });
+    UI.drop.addEventListener('dragleave', () => UI.drop.classList.remove('dragover'));
+    UI.drop.addEventListener('drop', e => {
+      e.preventDefault(); UI.drop.classList.remove('dragover');
+      handleFile(e.dataTransfer.files[0]);
+    });
+    UI.file.addEventListener('change', e => handleFile(e.target.files[0]));
+
+    function handleFile(f) {
+      if(!f || f.type !== 'application/pdf') return alert('Please select a PDF file.');
+      state.file = f;
+      UI.info.style.display = 'flex';
+      UI.name.textContent = `${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`;
+      UI.start.disabled = false;
+      log(`Selected file: ${f.name}`);
+    }
+
+    // --- Timer ---
+    function startTimer() {
+      state.startTime = Date.now();
+      UI.timer.textContent = "00:00";
+      state.timerId = setInterval(() => {
+        const diff = Math.floor((Date.now() - state.startTime) / 1000);
+        const m = Math.floor(diff / 60).toString().padStart(2,'0');
+        const s = (diff % 60).toString().padStart(2,'0');
+        UI.timer.textContent = `${m}:${s}`;
+        
+        // UX: Let user know we are still alive if it's taking long
+        if(diff === 60) log("1 minute elapsed. Still processing (normal)...", "WAIT");
+        if(diff === 180) log("3 minutes elapsed. Large file/slow proxy (hang in there)...", "WAIT");
+      }, 1000);
+    }
+    function stopTimer() { clearInterval(state.timerId); }
+
+    // --- Main Logic ---
+    UI.start.addEventListener('click', async () => {
+      if(!state.file) return;
+      reset();
+      state.running = true;
+      UI.start.disabled = true;
+      UI.cancel.disabled = false;
+      UI.status.textContent = "Negotiating Proxies...";
+      startTimer();
+
+      const candidates = getCandidates();
       
-      // Known keys to check first
-      if(obj.markdown) return deepSearchMarkdown(obj.markdown);
-      if(obj.text) return deepSearchMarkdown(obj.text);
-      if(obj.content) return deepSearchMarkdown(obj.content);
+      // We run them as a "Race", but staggered to avoid network congestion
+      const promises = candidates.map((c, i) => runCandidate(c, i * CONFIG.parallelDelay));
 
-      let bestCandidate = '';
-      for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-          const res = deepSearchMarkdown(obj[key]);
-          if (res.length > bestCandidate.length) {
-            bestCandidate = res;
-          }
-        }
+      const winner = await Promise.any(promises.map(p => p.catch(e => {
+        // We catch here so Promise.any waits for the first *success*, not failure
+        return new Promise(() => {}); 
+      })));
+
+      // If we get here via await, we likely have a result, but check state
+      if(!state.running && !UI.out.value) {
+        setStatus("Cancelled or Failed", "err");
       }
-      return bestCandidate;
-    }
-
-    // ===== Settings & Persistence =====
-    const LS_KEY='deepseek_v2_settings';
-    function saveSettings(){
-      if(!persistToggle.checked){localStorage.removeItem(LS_KEY); return;}
-      localStorage.setItem(LS_KEY, JSON.stringify({
-        endpoint:endpointEl.value, filename:filenameEl.value, maxSize:maxSizeEl.value,
-        corsKey:corsKeyEl.value, customProxy:customProxyEl.value,
-        retry:retryToggle.checked, parallel:parallelToggle.checked
-      }));
-    }
-    function loadSettings(){
-      try{const s=JSON.parse(localStorage.getItem(LS_KEY)||'null'); if(!s) return;
-        if(s.endpoint) endpointEl.value=s.endpoint;
-        if(s.filename) filenameEl.value=s.filename;
-        if(s.maxSize) maxSizeEl.value=s.maxSize;
-        if(s.corsKey) corsKeyEl.value=s.corsKey;
-        if(s.customProxy) customProxyEl.value=s.customProxy;
-        if(typeof s.retry==='boolean') retryToggle.checked=s.retry;
-        if(typeof s.parallel==='boolean') parallelToggle.checked=s.parallel;
-      }catch{}
-    }
-
-    // ===== Proxy List (Prioritized based on logs) =====
-    function endpoint(){return endpointEl.value.trim();}
-    function buildCandidates(){
-      const e = endpoint();
-      const K = corsKeyEl.value.trim();
       
-      // PRIORITY 1: CorsProxy.io (Verified winner)
-      // Note: encodeURIComponent is vital here
-      let list = [
-        { label:'corsproxy.io', url:`https://corsproxy.io/?${encodeURIComponent(e)}`, headers:{}, cap:'maybe-post' },
-        { label:'Direct', url:e, headers:{}, cap:'post' }, // Try direct just in case user has extension
-        { label:'proxy.cors.sh', url:`https://proxy.cors.sh/${e}`, headers: K ? {'x-cors-api-key':K} : {}, cap:'post' },
-        { label:'cors.isomorphic-git.org', url:`https://cors.isomorphic-git.org/${e}`, headers:{}, cap:'post' },
-        { label:'thingproxy', url:`https://thingproxy.freeboard.io/fetch/${e}`, headers:{}, cap:'maybe-post' },
-        { label:'cors-anywhere', url:`https://cors-anywhere.herokuapp.com/${e}`, headers:{}, cap:'post' }
+      // Watchdog: If all failed
+      setTimeout(() => {
+        if(state.running && !UI.out.value) {
+          log("All proxies exhausted. Try a smaller file or checking internet.", "FATAL");
+          finish(false);
+        }
+      }, 5000);
+    });
+
+    UI.cancel.addEventListener('click', () => {
+      log("Cancelled by user.", "WARN");
+      finish(false);
+    });
+
+    function reset() {
+      state.running = false;
+      state.xhrs.forEach(x => x.abort());
+      state.xhrs = [];
+      state.logs = [];
+      UI.out.value = '';
+      UI.prog.style.width = '0%';
+      UI.dl.disabled = true;
+      UI.copy.disabled = true;
+      stopTimer();
+    }
+
+    function finish(success) {
+      state.running = false;
+      stopTimer();
+      UI.start.disabled = false;
+      UI.cancel.disabled = true;
+      UI.status.classList.remove('pulse');
+      if(success) UI.status.textContent = "Completed Successfully";
+      else UI.status.textContent = "Failed / Stopped";
+    }
+
+    // --- Candidate Runner ---
+    function getCandidates() {
+      const endpoint = qs('#endpoint').value.trim();
+      const custom = qs('#customProxy').value.trim();
+      
+      // PRIORITY ORDER based on logs
+      const list = [
+        { name: 'CorsProxy.io', url: `https://corsproxy.io/?${encodeURIComponent(endpoint)}`, type: 'xhr' },
+        { name: 'Proxy.Cors.sh', url: `https://proxy.cors.sh/${endpoint}`, type: 'xhr' },
+        { name: 'Direct', url: endpoint, type: 'xhr' },
+        { name: 'CorsProxy.io (Fallback)', url: `https://corsproxy.io/?${encodeURIComponent(endpoint)}`, type: 'form' }, // Form fallback
       ];
-
-      const custom = customProxyEl.value.trim();
-      if(custom){ list.unshift({ label:'Custom', url:custom, headers:{}, cap:'post' }); }
       
+      if(custom) list.unshift({ name: 'Custom Proxy', url: custom, type: 'xhr' });
       return list;
     }
 
-    // ===== File Handling =====
-    drop.addEventListener('click',()=>fileInput.click());
-    ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.add('dragover');}));
-    ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('dragover');}));
-    drop.addEventListener('drop',e=>handleFile(e.dataTransfer.files?.[0]));
-    fileInput.addEventListener('change',e=>handleFile(e.target.files?.[0]));
+    async function runCandidate(c, delay) {
+      await new Promise(r => setTimeout(r, delay));
+      if(!state.running) return Promise.reject();
 
-    async function handleFile(f){
-      if(!f) return;
-      if(f.type!=='application/pdf' && !f.name.toLowerCase().endsWith('.pdf')){ alert('Only .pdf allowed'); return; }
-      const maxBytes = Number(maxSizeEl.value||100)*1024*1024;
-      if(f.size>maxBytes){ alert(`File too large. Limit ${(maxBytes/1024/1024).toFixed(0)} MB.`); return; }
-      currentFile=f;
-      picked.textContent=`Selected: ${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`;
-      filenameEl.value=(f.name.replace(/\.pdf$/i,'')||'ocr-output')+'.md';
-      saveSettings();
-    }
+      for(let attempt = 1; attempt <= CONFIG.maxAttempts; attempt++) {
+        if(!state.running) return Promise.reject();
+        
+        const label = `${c.name} [${c.type.toUpperCase()} ${attempt}/${CONFIG.maxAttempts}]`;
+        log(`${label} Starting...`);
 
-    // ===== Actions =====
-    window.openCorsAnywhere = () => window.open('https://cors-anywhere.herokuapp.com/corsdemo', '_blank');
-    saveLogsBtn.addEventListener('click',()=>{ const blob=new Blob([logBuffer.join('\n')],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ocr-debug-logs.txt'; a.click(); });
-    
-    startBtn.addEventListener('click', async ()=>{
-      if(!currentFile){ alert('Pick a PDF first.'); return; }
-      done=false; activeXHRs.forEach(x=>x.abort()); activeXHRs=[];
-      out.value=''; len.textContent=''; dl.disabled=true; copyBtn.disabled=true; saveLogsBtn.disabled=false;
-      logBuffer=['Starting process (v2)...']; logEl.textContent=logBuffer.join('\n'); 
-      setStatus('Initializing...'); setProg(0); startBtn.disabled=true; cancelBtn.disabled=false;
-      startWatchdog();
+        try {
+          const result = c.type === 'xhr' 
+            ? await tryXHR(c.url, label) 
+            : await tryForm(c.url, label);
 
-      const candidates = buildCandidates();
-      const runners = candidates.map((c,i)=> runCandidate(c, parallelToggle.checked ? i*800 : i*3000)); // Stagger more if parallel
-      
-      Promise.allSettled(runners).then(results=>{
-        if(!done && !results.some(r=>r.value===true)){
-          setStatus('All proxies failed.');
-          logLine('ERR','FATAL: No proxy succeeded. Try getting a key for proxy.cors.sh or activating CORS Anywhere.');
-          resetUI();
-        }
-      });
-    });
-
-    function onWin(label, content){
-      if(done) return;
-      done=true;
-      setStatus(`Success! (${label})`);
-      logLine('OK',`Winner: ${label}`);
-      out.value = content;
-      len.textContent = `${content.length} chars`;
-      dl.disabled=false; copyBtn.disabled=false;
-      cancelBtn.disabled=true;
-      resetUI();
-      // Flash the valid output
-      out.style.borderColor = 'var(--ok)';
-      setTimeout(()=>out.style.borderColor='', 1000);
-    }
-
-    cancelBtn.addEventListener('click',()=>{
-      done=true; activeXHRs.forEach(x=>x.abort());
-      logLine('WARN','Cancelled by user.'); setStatus('Cancelled'); resetUI();
-    });
-
-    // ===== Candidate Logic =====
-    async function runCandidate(cand, delayMs){
-      await new Promise(r=>setTimeout(r, delayMs));
-      if(done) return false;
-
-      const attemptMax = retryToggle.checked ? MAX_ATTEMPTS : 1;
-
-      // 1. Try XHR (Best for progress bars)
-      for(let a=1;a<=attemptMax && !done;a++){
-        const tag = `${cand.label} [XHR ${a}/${attemptMax}]`;
-        const ok = await xhrUpload(cand.url, tag, cand.headers);
-        if(ok) return true;
-        // Exponential backoff
-        if(a<attemptMax && !done){ 
-          const wait = BACKOFF_BASE_MS * Math.pow(1.5, a);
-          logLine('INFO',`${tag} failed. Retrying in ${(wait/1000).toFixed(1)}s...`);
-          await new Promise(r=>setTimeout(r, wait)); 
-        }
-      }
-
-      // 2. Try Form Fallback (Only if XHR failed and not GET-only)
-      if(!done && cand.cap !== 'get-only'){
-        const tag = `${cand.label} [Form Fallback]`;
-        const ok = await formUpload(cand.url, tag);
-        if(ok) return true;
-      }
-
-      return false;
-    }
-
-    // ===== XHR Upload =====
-    function xhrUpload(url, label, extraHeaders={}){
-      return new Promise(resolve=>{
-        if(done) return resolve(false);
-        try{
-          const fd = new FormData(); fd.append('file', currentFile, currentFile.name);
-          const xhr = new XMLHttpRequest(); activeXHRs.push(xhr);
-          xhr.open('POST', url, true); 
-          xhr.responseType='text';
-          xhr.timeout = 10 * 60 * 1000; // 10 minutes (previous success was ~3 mins)
-          
-          // Headers
-          xhr.setRequestHeader('Accept','application/json, text/markdown, text/plain, */*');
-          for(const [k,v] of Object.entries(extraHeaders)) try{xhr.setRequestHeader(k, v);}catch{}
-
-          xhr.upload.onprogress = (e)=>{ 
-            if(done) return;
-            if(e.lengthComputable){ 
-              const pct=Math.round(e.loaded/e.total*100); 
-              setProg(pct); setStatus(`${label} Uploading ${pct}%`); 
-              lastProgTs=performance.now(); 
-            } 
-          };
-          
-          xhr.onload = ()=>{
-            if(xhr.status>=200 && xhr.status<300){
-               processSuccess(xhr.responseText, label, resolve);
-            } else {
-               logLine('ERR', `${label} HTTP ${xhr.status}: ${xhr.responseText.substring(0,50)}...`);
-               resolve(false);
-            }
-          };
-          xhr.onerror = ()=>{ logLine('ERR', `${label} Network Error (CORS blocked?)`); resolve(false); };
-          xhr.ontimeout = ()=>{ logLine('ERR', `${label} Timeout (Server took too long)`); resolve(false); };
-          
-          logLine('INFO', `${label} Sending...`);
-          xhr.send(fd);
-        }catch(e){ logLine('ERR', `${label} Setup failed: ${e}`); resolve(false); }
-      });
-    }
-
-    // ===== Form Upload (Fallback) =====
-    function formUpload(url, label){
-      return new Promise(resolve=>{
-        if(done) return resolve(false);
-        try{
-          form.action = url; 
-          const dt = new DataTransfer(); dt.items.add(currentFile); formFile.files = dt.files;
-
-          let finished=false;
-          const cleanup=()=>{ 
-            finished=true; sink.removeEventListener('load', onLoad); clearTimeout(timer); 
-          };
-          
-          // Extended timeout for form (45s)
-          const timer = setTimeout(()=>{ 
-            if(!finished){ logLine('WARN', `${label} Timed out (${FORM_TIMEOUT_MS/1000}s)`); cleanup(); resolve(false);} 
-          }, FORM_TIMEOUT_MS);
-
-          const onLoad = ()=>{
-            try{
-              const doc = sink.contentDocument || sink.contentWindow.document;
-              const text = doc && doc.body ? doc.body.textContent : '';
-              if(text && text.length > 20) { 
-                processSuccess(text, label, resolve);
-                cleanup(); return;
-              }
-            }catch(e){}
-            if(!finished) logLine('WARN', `${label} iframe empty/blocked`);
-            cleanup(); resolve(false);
-          };
-
-          sink.addEventListener('load', onLoad);
-          logLine('INFO', `${label} Submitting form...`);
-          form.submit();
-        }catch(e){ resolve(false); }
-      });
-    }
-
-    // ===== Intelligent Response Processor =====
-    function processSuccess(raw, label, resolve){
-      if(done) return resolve(false);
-      
-      let finalMd = '';
-      
-      if(isLikelyJSON(raw)){
-        try{
-          const j = JSON.parse(raw);
-          // Try standard keys
-          finalMd = j.markdown || j.data?.markdown || j.text || '';
-          
-          // If empty, use Deep Search (Recursive)
-          if(!finalMd || finalMd.length < 10) {
-            logLine('INFO', `${label} JSON structure unclear, running Deep Search...`);
-            finalMd = deepSearchMarkdown(j);
-          }
-          
-          if(finalMd && finalMd.length > 20) {
-            onWin(label, finalMd);
-            return resolve(true);
-          } else {
-             // Worst case: dump the JSON prettified
-             logLine('WARN', `${label} Valid JSON but no long strings found.`);
-             onWin(label + ' (Raw JSON)', JSON.stringify(j, null, 2));
-             return resolve(true);
+          if(result) {
+            handleSuccess(result, label);
+            return result;
           }
         } catch(e) {
-          logLine('WARN', `${label} JSON Parse failed: ${e}`);
-          finalMd = raw; // Treat as plain text
+          // Failure logged in sub-function
         }
-      } else {
-        finalMd = raw;
-      }
 
-      if(finalMd && finalMd.length > 0){
-        onWin(label, finalMd);
-        resolve(true);
-      } else {
-        resolve(false);
+        // Backoff
+        if(attempt < CONFIG.maxAttempts) {
+          const wait = CONFIG.backoffBase + (attempt * 1000);
+          log(`${label} Failed. Waiting ${wait/1000}s...`, "WARN");
+          await new Promise(r => setTimeout(r, wait));
+        }
       }
+      return Promise.reject();
     }
 
-    // ===== UI Helpers =====
-    dl.addEventListener('click', ()=>{ 
-      const blob=new Blob([out.value],{type:'text/markdown'}); 
-      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); 
-      a.download=(filenameEl.value.trim()||'ocr.md'); a.click(); 
-    });
-    copyBtn.addEventListener('click', ()=>{ navigator.clipboard.writeText(out.value); setStatus('Copied!'); });
+    // --- XHR Logic ---
+    function tryXHR(url, label) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        state.xhrs.push(xhr);
+        
+        xhr.open('POST', url, true);
+        xhr.timeout = CONFIG.xhrTimeout;
+        
+        // CRITICAL: Prevent credentials to avoid strict CORS preflight issues
+        xhr.withCredentials = false; 
+        xhr.setRequestHeader('Accept', 'application/json, text/plain, */*');
 
-    loadSettings();
+        const fd = new FormData();
+        fd.append('file', state.file);
+
+        xhr.upload.onprogress = e => {
+          if(e.lengthComputable && state.running) {
+            const pct = (e.loaded / e.total) * 100;
+            if(pct % 10 === 0) UI.prog.style.width = pct + '%'; // Don't repaint too often
+          }
+        };
+
+        xhr.onload = () => {
+          if(xhr.status >= 200 && xhr.status < 300) {
+            const txt = processResponse(xhr.responseText);
+            if(txt) resolve(txt);
+            else {
+              log(`${label} Valid HTTP but empty/bad JSON`, "ERR");
+              reject();
+            }
+          } else {
+            log(`${label} HTTP ${xhr.status}`, "ERR");
+            reject();
+          }
+        };
+
+        xhr.onerror = () => { log(`${label} Network/CORS Error`, "ERR"); reject(); };
+        xhr.ontimeout = () => { log(`${label} Timed Out (${CONFIG.xhrTimeout/60000}m)`, "ERR"); reject(); };
+        
+        xhr.send(fd);
+      });
+    }
+
+    // --- Form Logic (Fallback) ---
+    function tryForm(url, label) {
+      return new Promise((resolve, reject) => {
+        const form = qs('#hiddenForm');
+        const input = qs('#hiddenInput');
+        const iframe = qs('#sink');
+        
+        form.action = url;
+        const dt = new DataTransfer();
+        dt.items.add(state.file);
+        input.files = dt.files;
+
+        let finished = false;
+        
+        const timer = setTimeout(() => {
+          if(!finished) {
+            finished = true;
+            log(`${label} Timed Out (${CONFIG.formTimeout/60000}m)`, "ERR");
+            reject();
+          }
+        }, CONFIG.formTimeout);
+
+        const handler = () => {
+          if(finished) return;
+          finished = true;
+          clearTimeout(timer);
+          iframe.removeEventListener('load', handler);
+          
+          try {
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            const txt = doc.body.textContent;
+            const processed = processResponse(txt);
+            if(processed) resolve(processed);
+            else reject();
+          } catch(e) {
+            log(`${label} iframe blocked (CORS)`, "ERR");
+            reject();
+          }
+        };
+
+        iframe.addEventListener('load', handler);
+        form.submit();
+      });
+    }
+
+    // --- "Deep Search" Algorithm (The Fix) ---
+    function processResponse(raw) {
+      if(!raw) return null;
+      let text = '';
+
+      // 1. Try JSON Parse
+      if(raw.trim().startsWith('{')) {
+        try {
+          const json = JSON.parse(raw);
+          // Recursive search for the longest string
+          text = findLongestString(json);
+        } catch(e) {
+          text = raw; // Maybe it wasn't JSON
+        }
+      } else {
+        text = raw;
+      }
+
+      // 2. Validation
+      if(text && text.length > 50) return text;
+      return null;
+    }
+
+    function findLongestString(obj) {
+      if(typeof obj === 'string') return obj;
+      if(typeof obj !== 'object' || obj === null) return '';
+      
+      let max = '';
+      for(let k in obj) {
+        const val = findLongestString(obj[k]);
+        if(val.length > max.length) max = val;
+      }
+      return max;
+    }
+
+    function handleSuccess(text, label) {
+      if(!state.running) return;
+      log(`WINNER: ${label}`, "SUCCESS");
+      UI.out.value = text;
+      UI.dl.disabled = false;
+      UI.copy.disabled = false;
+      UI.status.textContent = "Done!";
+      finish(true);
+      
+      // Flash effect
+      UI.out.style.borderColor = 'var(--ok)';
+      setTimeout(() => UI.out.style.borderColor = '', 1000);
+    }
+
+    // --- Buttons ---
+    UI.copy.addEventListener('click', () => {
+      navigator.clipboard.writeText(UI.out.value);
+      UI.copy.textContent = 'Copied!';
+      setTimeout(() => UI.copy.textContent = 'Copy Text', 2000);
+    });
+    
+    UI.dl.addEventListener('click', () => {
+      const blob = new Blob([UI.out.value], {type: 'text/markdown'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = qs('#filename').value || 'ocr.md';
+      a.click();
+    });
+
+    UI.logBtn.addEventListener('click', () => {
+      const blob = new Blob([state.logs.join('\n')], {type: 'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ocr-logs.txt';
+      a.click();
+    });
+
   </script>
 </body>
 </html>
