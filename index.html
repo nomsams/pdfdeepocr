@@ -3,488 +3,387 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>DeepSeek OCR → Markdown (v3 Reliability)</title>
+  <title>DeepSeek OCR Multi-Proxy (v4)</title>
   <style>
     :root{
-      --bg:#0f1115; --panel:#151923; --muted:#232836; --text:#e6e6e6; --accent:#62d0ff; --ok:#30d158; --warn:#ffcc00; --err:#ff453a;
-      --shadow:0 8px 30px rgba(0,0,0,.35);
+      --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#c9d1d9; 
+      --accent:#58a6ff; --ok:#238636; --err:#da3633; --warn:#d29922;
+      --font: -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
     }
-    html,body{height:100%}
-    body{margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial}
-    .wrap{max-width:1100px; margin:24px auto; padding:0 16px;}
-    .grid{display:grid; gap:12px}
-    .card{background:var(--panel); border:1px solid var(--muted); border-radius:14px; padding:16px; box-shadow:var(--shadow);}
-    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-    .grow{flex:1}
-    label{display:block; font-weight:600; margin-bottom:6px; color:#aab2c0;}
-    input[type="text"],input[type="url"],input[type="number"]{
-      width:100%; background:#0d1017; border:1px solid var(--muted); color:var(--text); padding:10px 12px; border-radius:10px; outline:none; font-family:inherit;
+    body{background:var(--bg); color:var(--text); font-family:var(--font); margin:0; padding:20px; height:100vh; box-sizing:border-box; display:flex; flex-direction:column;}
+    .container{max-width:1000px; margin:0 auto; width:100%; display:grid; gap:20px; height:100%; grid-template-rows: auto auto 1fr;}
+    
+    /* Cards */
+    .card{background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:16px;}
+    .header{display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:10px;}
+    h2{margin:0; font-size:16px; color:var(--accent);}
+    
+    /* Inputs */
+    .input-group{margin-bottom:10px;}
+    label{display:block; font-size:12px; font-weight:600; margin-bottom:5px; color:#8b949e;}
+    input[type="text"], input[type="url"]{
+      width:100%; background:#0d1117; border:1px solid var(--border); color:var(--text); 
+      padding:8px; border-radius:6px; box-sizing:border-box; font-family:monospace;
     }
-    input:focus{border-color:var(--accent)}
-    .drop{border:2px dashed var(--muted); border-radius:14px; padding:24px; text-align:center; transition:.2s; cursor:pointer;}
-    .drop:hover,.drop.dragover{border-color:var(--accent); background:#1a202e}
-    .btn{background:var(--accent); color:#00121a; border:0; border-radius:8px; padding:10px 16px; font-weight:700; cursor:pointer; min-width:100px;}
-    .btn:disabled{opacity:0.5; cursor:not-allowed; filter:grayscale(1);}
-    .btn.secondary{background:#2c3547; color:var(--text)}
-    .btn.ok{background:var(--ok); color:#001a08}
-    .bar-bg{height:8px; background:#0c1018; border-radius:99px; overflow:hidden; position:relative;}
-    .bar-fg{height:100%; width:0%; background:var(--accent); transition:width 0.3s;}
-    .pulse{animation:pulse 2s infinite;}
-    @keyframes pulse{0%{opacity:1} 50%{opacity:0.6} 100%{opacity:1}}
+    input:focus{border-color:var(--accent); outline:none;}
+
+    /* Drop Zone */
+    .drop-zone{
+      border:2px dashed var(--border); border-radius:6px; padding:30px; text-align:center; 
+      cursor:pointer; transition:0.2s; background:#0d1117;
+    }
+    .drop-zone:hover, .drop-zone.dragover{border-color:var(--accent); background:#1c2128;}
     
-    textarea,pre{width:100%; background:#0b0f15; color:#eaeffb; border:1px solid var(--muted); border-radius:10px; padding:12px; font-family:ui-monospace,monospace;}
-    textarea{min-height:300px; resize:vertical; line-height:1.6;}
-    pre{max-height:400px; overflow:auto; white-space:pre-wrap; font-size:12px;}
+    /* Buttons */
+    .btn-row{display:flex; gap:10px; margin-top:10px;}
+    button{
+      background:var(--panel); border:1px solid var(--border); color:var(--text); 
+      padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px;
+    }
+    button.primary{background:var(--ok); color:white; border-color:rgba(255,255,255,0.1);}
+    button:disabled{opacity:0.5; cursor:not-allowed;}
+    button:hover:not(:disabled){filter:brightness(1.1);}
+
+    /* Logs & Output */
+    .split-view{display:grid; grid-template-columns:1fr 1fr; gap:20px; height:100%; min-height:0;}
+    textarea, .log-box{
+      width:100%; height:100%; background:#0d1117; border:1px solid var(--border); 
+      color:var(--text); padding:10px; border-radius:6px; box-sizing:border-box; 
+      font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace;
+      resize:none; font-size:12px;
+    }
+    .log-box{overflow-y:auto; white-space:pre-wrap;}
+    .log-entry{margin-bottom:4px; border-bottom:1px solid #21262d; padding-bottom:2px;}
+    .log-time{color:#8b949e; margin-right:8px;}
+    .l-info{color:var(--accent);}
+    .l-err{color:var(--err);}
+    .l-success{color:var(--ok);}
+    .l-warn{color:var(--warn);}
+
+    /* Progress */
+    .progress-container{height:4px; background:var(--border); margin-top:10px; border-radius:2px; overflow:hidden;}
+    .progress-bar{height:100%; width:0%; background:var(--accent); transition:width 0.2s;}
     
-    .status-row{display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:13px;}
-    .timer{font-variant-numeric:tabular-nums; color:var(--accent);}
-    .cols{display:grid; grid-template-columns:1fr; gap:12px}
-    @media(min-width:980px){ .cols{grid-template-columns:1fr 1fr} }
-    
-    .badge{display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:bold; text-transform:uppercase;}
-    .b-warn{background:rgba(255, 204, 0, 0.15); color:var(--warn); border:1px solid rgba(255,204,0,0.3);}
-    .b-ok{background:rgba(48, 209, 88, 0.15); color:var(--ok); border:1px solid rgba(48,209,88,0.3);}
+    @media(max-width:700px){ .split-view{grid-template-columns:1fr; grid-template-rows:1fr 1fr;} }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-      <h1 style="margin:0">DeepSeek OCR → Markdown <span style="font-size:0.6em; opacity:0.6; font-weight:400;">v3 Reliability</span></h1>
+
+<div class="container">
+  <!-- Config Section -->
+  <div class="card">
+    <div class="header">
+      <h2>Configuration</h2>
+      <div style="font-size:12px">Status: <span id="statusBadge" style="color:var(--text)">Idle</span></div>
     </div>
-
-    <div class="grid">
-      <!-- Settings -->
-      <div class="card">
-        <div class="row">
-          <div class="grow">
-            <label>API Endpoint</label>
-            <input id="endpoint" type="url" value="https://api.alphaxiv.org/models/v1/deepseek/deepseek-ocr/inference"/>
-          </div>
-          <div class="grow">
-            <label>Output Filename</label>
-            <input id="filename" type="text" value="ocr-result.md"/>
-          </div>
-        </div>
-        <div class="row" style="margin-top:12px">
-          <div class="grow">
-            <label>CorsProxy.io URL (Recommended)</label>
-            <input id="proxyUrl" type="text" value="https://corsproxy.io/?" readonly style="opacity:0.7; cursor:not-allowed"/>
-          </div>
-          <div class="grow">
-            <label>Custom Proxy (Optional)</label>
-            <input id="customProxy" type="url" placeholder="https://your-proxy.com/..."/>
-          </div>
-        </div>
-      </div>
-
-      <!-- Upload & Controls -->
-      <div class="card">
-        <div id="drop" class="drop">
-          <div style="pointer-events:none">
-            <strong style="font-size:16px">Click to Select PDF</strong> or Drag & Drop<br/>
-            <span class="muted" style="font-size:12px">Note: Processing usually takes 2-4 minutes per file.</span>
-          </div>
-          <input id="file" type="file" accept="application/pdf" style="display:none"/>
-        </div>
-        
-        <div id="fileInfo" class="row" style="margin-top:10px; display:none">
-          <span class="badge b-ok">PDF Selected</span>
-          <span id="fileName" class="muted"></span>
-        </div>
-
-        <div class="row" style="margin-top:16px">
-          <button id="start" class="btn">Start OCR</button>
-          <button id="cancel" class="btn secondary" disabled>Cancel</button>
-          <button id="downloadLog" class="btn secondary">Save Logs</button>
-        </div>
-
-        <!-- Progress -->
-        <div style="margin-top:16px">
-          <div class="status-row">
-            <strong id="statusText" class="pulse">Ready.</strong>
-            <span id="timer" class="timer">00:00</span>
-          </div>
-          <div class="bar-bg" style="margin-top:6px"><div id="prog" class="bar-fg"></div></div>
-        </div>
-      </div>
-
-      <!-- Output -->
-      <div class="card cols">
-        <div>
-          <label>Markdown Output</label>
-          <textarea id="output" placeholder="Results will appear here..." readonly></textarea>
-          <div class="row" style="margin-top:10px">
-            <button id="dlBtn" class="btn ok" disabled>Download .md</button>
-            <button id="copyBtn" class="btn secondary" disabled>Copy Text</button>
-          </div>
-        </div>
-        <div>
-          <label>Live Logs</label>
-          <pre id="log">Waiting for input...</pre>
-          <div style="margin-top:8px; font-size:12px; color:#888;">
-            <strong>Strategy:</strong> Parallel Race (Priority: corsproxy.io) → Deep Search → 5 Retries.
-          </div>
-        </div>
-      </div>
+    <div class="input-group">
+      <label>Target API Endpoint</label>
+      <input type="url" id="apiUrl" value="https://api.alphaxiv.org/models/v1/deepseek/deepseek-ocr/inference">
+    </div>
+    <div class="input-group">
+      <label>Custom Proxy (Optional - Overrides List)</label>
+      <input type="url" id="customProxy" placeholder="https://your-worker.workers.dev/?url=">
     </div>
   </div>
 
-  <!-- Hidden form for fallbacks -->
-  <iframe name="sink" id="sink" style="display:none"></iframe>
-  <form id="hiddenForm" target="sink" method="POST" enctype="multipart/form-data" style="display:none">
-    <input type="file" name="file" id="hiddenInput"/>
-  </form>
-
-  <script>
-    // --- Configuration ---
-    const CONFIG = {
-      maxAttempts: 5,        // Aggressive retries
-      backoffBase: 5000,     // 5s wait between tries (prevents spamming)
-      xhrTimeout: 600000,    // 10 Minutes (crucial for slow deepseek)
-      formTimeout: 300000,   // 5 Minutes (crucial for fallbacks)
-      parallelDelay: 2000    // Stagger starts
-    };
-
-    // --- DOM ---
-    const qs = s => document.querySelector(s);
-    const UI = {
-      drop: qs('#drop'), file: qs('#file'), info: qs('#fileInfo'), name: qs('#fileName'),
-      start: qs('#start'), cancel: qs('#cancel'), logBtn: qs('#downloadLog'),
-      status: qs('#statusText'), timer: qs('#timer'), prog: qs('#prog'),
-      out: qs('#output'), log: qs('#log'),
-      dl: qs('#dlBtn'), copy: qs('#copyBtn'),
-      endpoint: qs('#endpoint'), custom: qs('#customProxy')
-    };
-
-    // --- State ---
-    let state = {
-      file: null,
-      running: false,
-      logs: [],
-      xhrs: [],
-      startTime: 0,
-      timerId: null
-    };
-
-    // --- Logger ---
-    const log = (msg, level='INFO') => {
-      const ts = new Date().toLocaleTimeString('en-GB');
-      const line = `[${ts}] [${level}] ${msg}`;
-      state.logs.push(line);
-      UI.log.textContent = state.logs.join('\n');
-      UI.log.scrollTop = UI.log.scrollHeight;
-    };
-
-    // --- File Handling ---
-    UI.drop.addEventListener('click', () => UI.file.click());
-    UI.drop.addEventListener('dragover', e => { e.preventDefault(); UI.drop.classList.add('dragover'); });
-    UI.drop.addEventListener('dragleave', () => UI.drop.classList.remove('dragover'));
-    UI.drop.addEventListener('drop', e => {
-      e.preventDefault(); UI.drop.classList.remove('dragover');
-      handleFile(e.dataTransfer.files[0]);
-    });
-    UI.file.addEventListener('change', e => handleFile(e.target.files[0]));
-
-    function handleFile(f) {
-      if(!f || f.type !== 'application/pdf') return alert('Please select a PDF file.');
-      state.file = f;
-      UI.info.style.display = 'flex';
-      UI.name.textContent = `${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`;
-      UI.start.disabled = false;
-      log(`Selected file: ${f.name}`);
-    }
-
-    // --- Timer ---
-    function startTimer() {
-      state.startTime = Date.now();
-      UI.timer.textContent = "00:00";
-      state.timerId = setInterval(() => {
-        const diff = Math.floor((Date.now() - state.startTime) / 1000);
-        const m = Math.floor(diff / 60).toString().padStart(2,'0');
-        const s = (diff % 60).toString().padStart(2,'0');
-        UI.timer.textContent = `${m}:${s}`;
-        
-        // UX: Let user know we are still alive if it's taking long
-        if(diff === 60) log("1 minute elapsed. Still processing (normal)...", "WAIT");
-        if(diff === 180) log("3 minutes elapsed. Large file/slow proxy (hang in there)...", "WAIT");
-      }, 1000);
-    }
-    function stopTimer() { clearInterval(state.timerId); }
-
-    // --- Main Logic ---
-    UI.start.addEventListener('click', async () => {
-      if(!state.file) return;
-      reset();
-      state.running = true;
-      UI.start.disabled = true;
-      UI.cancel.disabled = false;
-      UI.status.textContent = "Negotiating Proxies...";
-      startTimer();
-
-      const candidates = getCandidates();
-      
-      // We run them as a "Race", but staggered to avoid network congestion
-      const promises = candidates.map((c, i) => runCandidate(c, i * CONFIG.parallelDelay));
-
-      const winner = await Promise.any(promises.map(p => p.catch(e => {
-        // We catch here so Promise.any waits for the first *success*, not failure
-        return new Promise(() => {}); 
-      })));
-
-      // If we get here via await, we likely have a result, but check state
-      if(!state.running && !UI.out.value) {
-        setStatus("Cancelled or Failed", "err");
-      }
-      
-      // Watchdog: If all failed
-      setTimeout(() => {
-        if(state.running && !UI.out.value) {
-          log("All proxies exhausted. Try a smaller file or checking internet.", "FATAL");
-          finish(false);
-        }
-      }, 5000);
-    });
-
-    UI.cancel.addEventListener('click', () => {
-      log("Cancelled by user.", "WARN");
-      finish(false);
-    });
-
-    function reset() {
-      state.running = false;
-      state.xhrs.forEach(x => x.abort());
-      state.xhrs = [];
-      state.logs = [];
-      UI.out.value = '';
-      UI.prog.style.width = '0%';
-      UI.dl.disabled = true;
-      UI.copy.disabled = true;
-      stopTimer();
-    }
-
-    function finish(success) {
-      state.running = false;
-      stopTimer();
-      UI.start.disabled = false;
-      UI.cancel.disabled = true;
-      UI.status.classList.remove('pulse');
-      if(success) UI.status.textContent = "Completed Successfully";
-      else UI.status.textContent = "Failed / Stopped";
-    }
-
-    // --- Candidate Runner ---
-    function getCandidates() {
-      const endpoint = qs('#endpoint').value.trim();
-      const custom = qs('#customProxy').value.trim();
-      
-      // PRIORITY ORDER based on logs
-      const list = [
-        { name: 'CorsProxy.io', url: `https://corsproxy.io/?${encodeURIComponent(endpoint)}`, type: 'xhr' },
-        { name: 'Proxy.Cors.sh', url: `https://proxy.cors.sh/${endpoint}`, type: 'xhr' },
-        { name: 'Direct', url: endpoint, type: 'xhr' },
-        { name: 'CorsProxy.io (Fallback)', url: `https://corsproxy.io/?${encodeURIComponent(endpoint)}`, type: 'form' }, // Form fallback
-      ];
-      
-      if(custom) list.unshift({ name: 'Custom Proxy', url: custom, type: 'xhr' });
-      return list;
-    }
-
-    async function runCandidate(c, delay) {
-      await new Promise(r => setTimeout(r, delay));
-      if(!state.running) return Promise.reject();
-
-      for(let attempt = 1; attempt <= CONFIG.maxAttempts; attempt++) {
-        if(!state.running) return Promise.reject();
-        
-        const label = `${c.name} [${c.type.toUpperCase()} ${attempt}/${CONFIG.maxAttempts}]`;
-        log(`${label} Starting...`);
-
-        try {
-          const result = c.type === 'xhr' 
-            ? await tryXHR(c.url, label) 
-            : await tryForm(c.url, label);
-
-          if(result) {
-            handleSuccess(result, label);
-            return result;
-          }
-        } catch(e) {
-          // Failure logged in sub-function
-        }
-
-        // Backoff
-        if(attempt < CONFIG.maxAttempts) {
-          const wait = CONFIG.backoffBase + (attempt * 1000);
-          log(`${label} Failed. Waiting ${wait/1000}s...`, "WARN");
-          await new Promise(r => setTimeout(r, wait));
-        }
-      }
-      return Promise.reject();
-    }
-
-    // --- XHR Logic ---
-    function tryXHR(url, label) {
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        state.xhrs.push(xhr);
-        
-        xhr.open('POST', url, true);
-        xhr.timeout = CONFIG.xhrTimeout;
-        
-        // CRITICAL: Prevent credentials to avoid strict CORS preflight issues
-        xhr.withCredentials = false; 
-        xhr.setRequestHeader('Accept', 'application/json, text/plain, */*');
-
-        const fd = new FormData();
-        fd.append('file', state.file);
-
-        xhr.upload.onprogress = e => {
-          if(e.lengthComputable && state.running) {
-            const pct = (e.loaded / e.total) * 100;
-            if(pct % 10 === 0) UI.prog.style.width = pct + '%'; // Don't repaint too often
-          }
-        };
-
-        xhr.onload = () => {
-          if(xhr.status >= 200 && xhr.status < 300) {
-            const txt = processResponse(xhr.responseText);
-            if(txt) resolve(txt);
-            else {
-              log(`${label} Valid HTTP but empty/bad JSON`, "ERR");
-              reject();
-            }
-          } else {
-            log(`${label} HTTP ${xhr.status}`, "ERR");
-            reject();
-          }
-        };
-
-        xhr.onerror = () => { log(`${label} Network/CORS Error`, "ERR"); reject(); };
-        xhr.ontimeout = () => { log(`${label} Timed Out (${CONFIG.xhrTimeout/60000}m)`, "ERR"); reject(); };
-        
-        xhr.send(fd);
-      });
-    }
-
-    // --- Form Logic (Fallback) ---
-    function tryForm(url, label) {
-      return new Promise((resolve, reject) => {
-        const form = qs('#hiddenForm');
-        const input = qs('#hiddenInput');
-        const iframe = qs('#sink');
-        
-        form.action = url;
-        const dt = new DataTransfer();
-        dt.items.add(state.file);
-        input.files = dt.files;
-
-        let finished = false;
-        
-        const timer = setTimeout(() => {
-          if(!finished) {
-            finished = true;
-            log(`${label} Timed Out (${CONFIG.formTimeout/60000}m)`, "ERR");
-            reject();
-          }
-        }, CONFIG.formTimeout);
-
-        const handler = () => {
-          if(finished) return;
-          finished = true;
-          clearTimeout(timer);
-          iframe.removeEventListener('load', handler);
-          
-          try {
-            const doc = iframe.contentDocument || iframe.contentWindow.document;
-            const txt = doc.body.textContent;
-            const processed = processResponse(txt);
-            if(processed) resolve(processed);
-            else reject();
-          } catch(e) {
-            log(`${label} iframe blocked (CORS)`, "ERR");
-            reject();
-          }
-        };
-
-        iframe.addEventListener('load', handler);
-        form.submit();
-      });
-    }
-
-    // --- "Deep Search" Algorithm (The Fix) ---
-    function processResponse(raw) {
-      if(!raw) return null;
-      let text = '';
-
-      // 1. Try JSON Parse
-      if(raw.trim().startsWith('{')) {
-        try {
-          const json = JSON.parse(raw);
-          // Recursive search for the longest string
-          text = findLongestString(json);
-        } catch(e) {
-          text = raw; // Maybe it wasn't JSON
-        }
-      } else {
-        text = raw;
-      }
-
-      // 2. Validation
-      if(text && text.length > 50) return text;
-      return null;
-    }
-
-    function findLongestString(obj) {
-      if(typeof obj === 'string') return obj;
-      if(typeof obj !== 'object' || obj === null) return '';
-      
-      let max = '';
-      for(let k in obj) {
-        const val = findLongestString(obj[k]);
-        if(val.length > max.length) max = val;
-      }
-      return max;
-    }
-
-    function handleSuccess(text, label) {
-      if(!state.running) return;
-      log(`WINNER: ${label}`, "SUCCESS");
-      UI.out.value = text;
-      UI.dl.disabled = false;
-      UI.copy.disabled = false;
-      UI.status.textContent = "Done!";
-      finish(true);
-      
-      // Flash effect
-      UI.out.style.borderColor = 'var(--ok)';
-      setTimeout(() => UI.out.style.borderColor = '', 1000);
-    }
-
-    // --- Buttons ---
-    UI.copy.addEventListener('click', () => {
-      navigator.clipboard.writeText(UI.out.value);
-      UI.copy.textContent = 'Copied!';
-      setTimeout(() => UI.copy.textContent = 'Copy Text', 2000);
-    });
+  <!-- Upload Section -->
+  <div class="card">
+    <div class="drop-zone" id="dropZone">
+      <div id="dropText">
+        <strong style="font-size:1.2em; color:var(--text)">Drag & Drop PDF Here</strong><br>
+        <span style="color:#8b949e">or click to browse</span>
+      </div>
+      <input type="file" id="fileInput" accept="application/pdf" style="display:none">
+    </div>
     
-    UI.dl.addEventListener('click', () => {
-      const blob = new Blob([UI.out.value], {type: 'text/markdown'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = qs('#filename').value || 'ocr.md';
-      a.click();
-    });
+    <div class="progress-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
 
-    UI.logBtn.addEventListener('click', () => {
-      const blob = new Blob([state.logs.join('\n')], {type: 'text/plain'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'ocr-logs.txt';
-      a.click();
-    });
+    <div class="btn-row">
+      <button id="startBtn" class="primary" disabled>Start OCR</button>
+      <button id="stopBtn" disabled>Stop</button>
+      <button id="clearBtn">Clear Logs</button>
+      <div style="flex:1"></div>
+      <button id="downloadBtn" disabled>Download Markdown</button>
+    </div>
+  </div>
 
-  </script>
+  <!-- Output Section -->
+  <div class="split-view">
+    <div style="display:flex; flex-direction:column; height:100%">
+      <label>Live Logs (Proxy Waterfall)</label>
+      <div class="log-box" id="logBox"></div>
+    </div>
+    <div style="display:flex; flex-direction:column; height:100%">
+      <label>Markdown Result</label>
+      <textarea id="outputBox" placeholder="Result will appear here..." readonly></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * PROXY LIST (Best to Worst for File Uploads)
+ * Note: Many proxies block POST requests or strip headers. These are selected for compatibility.
+ */
+const PROXY_LIST = [
+  // 1. CorsProxy.io - Usually the fastest, but has strict size limits (approx 1MB)
+  { name: "CorsProxy.io", url: "https://corsproxy.io/?", limit: "1MB" },
+  
+  // 2. Corsfix - Newer, reliable, similar limits
+  { name: "Corsfix", url: "https://proxy.corsfix.com/?", limit: "1MB" },
+  
+  // 3. AllOrigins - "Raw" mode sometimes handles POST better than others
+  { name: "AllOrigins", url: "https://api.allorigins.win/raw?url=", limit: "Unknown" },
+  
+  // 4. CORS Anywhere (Heroku) - The "Nuclear Option". 
+  // REQUIRES USER INTERACTION. We will detect this and ask user to click the button.
+  { name: "CORS Anywhere (Demo)", url: "https://cors-anywhere.herokuapp.com/", limit: "Soft Limit", requiresAuth: true },
+  
+  // 5. ThingProxy - Very strict limits, likely to fail for PDFs, but worth a shot
+  { name: "ThingProxy", url: "https://thingproxy.freeboard.io/fetch/", limit: "100KB" }
+];
+
+// --- Application State ---
+let state = {
+  file: null,
+  isProcessing: false,
+  xhr: null
+};
+
+// --- DOM Elements ---
+const UI = {
+  drop: document.getElementById('dropZone'),
+  input: document.getElementById('fileInput'),
+  text: document.getElementById('dropText'),
+  start: document.getElementById('startBtn'),
+  stop: document.getElementById('stopBtn'),
+  dl: document.getElementById('downloadBtn'),
+  logs: document.getElementById('logBox'),
+  out: document.getElementById('outputBox'),
+  bar: document.getElementById('progressBar'),
+  status: document.getElementById('statusBadge'),
+  api: document.getElementById('apiUrl'),
+  custom: document.getElementById('customProxy')
+};
+
+// --- Logger ---
+function log(msg, type = 'info') {
+  const div = document.createElement('div');
+  div.className = `log-entry l-${type}`;
+  const time = new Date().toLocaleTimeString();
+  div.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+  UI.logs.appendChild(div);
+  UI.logs.scrollTop = UI.logs.scrollHeight;
+}
+
+// --- File Handling ---
+UI.drop.addEventListener('click', () => UI.input.click());
+UI.input.addEventListener('change', e => setFile(e.target.files[0]));
+UI.drop.addEventListener('dragover', e => { e.preventDefault(); UI.drop.classList.add('dragover'); });
+UI.drop.addEventListener('dragleave', () => UI.drop.classList.remove('dragover'));
+UI.drop.addEventListener('drop', e => {
+  e.preventDefault(); 
+  UI.drop.classList.remove('dragover');
+  setFile(e.dataTransfer.files[0]);
+});
+
+function setFile(f) {
+  if (!f) return;
+  if (f.type !== 'application/pdf') {
+    log("Error: Only PDF files are supported.", "err");
+    return;
+  }
+  state.file = f;
+  UI.text.innerHTML = `<strong>${f.name}</strong><br><span style="color:var(--accent)">${(f.size/1024/1024).toFixed(2)} MB</span>`;
+  UI.start.disabled = false;
+  log(`File selected: ${f.name} (${(f.size/1024).toFixed(1)} KB)`);
+  
+  // Warn about size
+  if(f.size > 1024 * 1024) {
+    log("⚠️ Warning: File is > 1MB. Free proxies may reject this.", "warn");
+  }
+}
+
+// --- Main Logic ---
+UI.start.addEventListener('click', async () => {
+  if (!state.file) return;
+  
+  resetUI();
+  state.isProcessing = true;
+  UI.start.disabled = true;
+  UI.stop.disabled = false;
+  UI.status.textContent = "Running...";
+  UI.status.style.color = "var(--warn)";
+
+  const targetApi = UI.api.value;
+  const customProxy = UI.custom.value;
+  
+  // Build the list of proxies to try
+  let attemptList = [];
+  if (customProxy) {
+    attemptList.push({ name: "Custom Proxy", url: customProxy });
+  }
+  attemptList = [...attemptList, ...PROXY_LIST];
+
+  // Waterfall Loop
+  for (const proxy of attemptList) {
+    if (!state.isProcessing) break; // User stopped
+
+    log(`Attempting via: <strong>${proxy.name}</strong>...`, "info");
+    
+    try {
+      // Construct URL
+      // Most proxies work as ProxyURL + TargetURL
+      // Some need encoding, but most modern ones handle raw strings better for redirects
+      const fullUrl = proxy.url + targetApi;
+      
+      const result = await uploadFile(fullUrl, state.file, proxy);
+      
+      // If we get here, we succeeded
+      handleSuccess(result, proxy.name);
+      return; 
+
+    } catch (error) {
+      log(`❌ ${proxy.name} Failed: ${error.message}`, "err");
+      
+      // Special handling for CORS Anywhere
+      if (proxy.requiresAuth && error.status === 403) {
+        log(`💡 <strong>Action Required:</strong> <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank" style="color:white;text-decoration:underline">Click here to unlock CORS Anywhere</a>, then try again.`, "warn");
+      }
+    }
+    
+    UI.bar.style.width = '0%'; // Reset bar for next attempt
+  }
+
+  if (state.isProcessing) {
+    log("💀 All proxies failed. Try a smaller file or a custom proxy.", "err");
+    finish(false);
+  }
+});
+
+UI.stop.addEventListener('click', () => {
+  if (state.xhr) state.xhr.abort();
+  log("🛑 Stopped by user.", "warn");
+  finish(false);
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  UI.logs.innerHTML = '';
+  UI.out.value = '';
+});
+
+// --- The Upload Function (XHR for Progress) ---
+function uploadFile(url, file, proxyConfig) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    state.xhr = xhr;
+
+    xhr.open('POST', url, true);
+    
+    // CRITICAL: Do NOT set Content-Type header. 
+    // The browser automatically sets it to multipart/form-data; boundary=...
+    // If you set it manually, the server won't be able to parse the file.
+    
+    // Optional: Add headers if specific proxies need them
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest'); // Helps some proxies
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percent = (e.loaded / e.total) * 100;
+        UI.bar.style.width = percent + '%';
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(xhr.responseText);
+      } else {
+        reject({ message: `HTTP ${xhr.status} ${xhr.statusText}`, status: xhr.status });
+      }
+    };
+
+    xhr.onerror = () => reject({ message: "Network Error (CORS or Blocked)", status: 0 });
+    xhr.ontimeout = () => reject({ message: "Timeout", status: 408 });
+
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // DeepSeek API specific params (if needed, usually just 'file' is enough)
+    // formData.append('model', 'deepseek-ocr'); 
+
+    xhr.send(formData);
+  });
+}
+
+// --- Response Parser ---
+function handleSuccess(rawText, proxyName) {
+  log(`✅ Success via ${proxyName}! Parsing response...`, "success");
+  
+  let markdown = "";
+  
+  try {
+    // The proxy might wrap the response in its own JSON, or return the API's JSON
+    // We need to find the actual content.
+    const json = JSON.parse(rawText);
+    
+    // Recursive search for the longest string in the JSON object
+    // (DeepSeek usually returns { "content": "..." } or similar)
+    markdown = findLongestString(json);
+    
+    if (!markdown || markdown.length < 50) {
+      // Fallback: maybe the raw text was the markdown?
+      markdown = JSON.stringify(json, null, 2);
+    }
+  } catch (e) {
+    // Not JSON, assume raw text
+    markdown = rawText;
+  }
+
+  UI.out.value = markdown;
+  finish(true);
+}
+
+function findLongestString(obj) {
+  if (typeof obj === 'string') return obj;
+  if (typeof obj !== 'object' || obj === null) return '';
+  
+  let maxStr = '';
+  Object.values(obj).forEach(val => {
+    const s = findLongestString(val);
+    if (s.length > maxStr.length) maxStr = s;
+  });
+  return maxStr;
+}
+
+function finish(success) {
+  state.isProcessing = false;
+  state.xhr = null;
+  UI.start.disabled = false;
+  UI.stop.disabled = true;
+  UI.dl.disabled = !success;
+  UI.status.textContent = success ? "Completed" : "Failed";
+  UI.status.style.color = success ? "var(--ok)" : "var(--err)";
+}
+
+function resetUI() {
+  UI.out.value = '';
+  UI.bar.style.width = '0%';
+  UI.logs.innerHTML = '';
+}
+
+// Download Handler
+UI.dl.addEventListener('click', () => {
+  const blob = new Blob([UI.out.value], {type: 'text/markdown'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (state.file ? state.file.name.replace('.pdf', '') : 'ocr') + '.md';
+  a.click();
+});
+
+</script>
 </body>
 </html>
